@@ -1273,6 +1273,7 @@
     const c = cfg();
     document.querySelectorAll('#guideSheet [data-g="goal"]').forEach((el) => (el.textContent = c.goal));
     document.querySelectorAll('#guideSheet [data-g="fine"]').forEach((el) => (el.textContent = won(c.fine)));
+    document.querySelectorAll('#guideSheet [data-g="home"]').forEach((el) => (el.textContent = (location.host + location.pathname).replace(/\/$/, "")));
     document.querySelectorAll("#guideSheet .adminonly").forEach((el) => (el.hidden = !(S.me && S.me.role === "admin")));
     $("#guideDot").hidden = true;
     try { localStorage.setItem(GUIDE_SEEN, "1"); } catch (_) {}
