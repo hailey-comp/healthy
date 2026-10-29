@@ -16,8 +16,23 @@
   --font-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  /* 기기가 다크 모드여도 항상 밝은 테마로 보여줌 */
+  --bronze: #A8642E;
+  --silver: #7D8A97;
+  --gold: #B88400;
+  /* 기기가 다크 모드여도 항상 밝은 테마로 보여줌 (다크 나이트 테마를 고른 경우만 어둡게) */
   color-scheme: light only;
+}
+/* 테마: 같은 토큰을 테마마다 다시 정의 */
+:root[data-skin="cherry"] { --bg: #FBEFF3; --surface: #FFFFFF; --ink: #2A1520; --muted: #7A5A68; --line: #EED3DD; --accent: #C92A62; --accent-ink: #FFFFFF; --accent-soft: #FCE0EA; }
+:root[data-skin="mint"] { --bg: #E9F5F0; --surface: #FFFFFF; --ink: #10241D; --muted: #52695F; --line: #CDE4DA; --accent: #0E8565; --accent-ink: #FFFFFF; --accent-soft: #D3EFE4; }
+:root[data-skin="lavender"] { --bg: #F1EFFA; --surface: #FFFFFF; --ink: #1E1A33; --muted: #625C7F; --line: #DCD7EF; --accent: #6342D4; --accent-ink: #FFFFFF; --accent-soft: #E5DFFB; }
+:root[data-skin="lemon"] { --bg: #FAF7E6; --surface: #FFFFFF; --ink: #23200F; --muted: #69634A; --line: #EAE2BE; --accent: #8A5B00; --accent-ink: #FFFFFF; --accent-soft: #F6EBC4; }
+:root[data-skin="night"] {
+  --bg: #0F141B; --surface: #18212B; --ink: #E7EDF3; --muted: #93A1AF; --line: #2A3644;
+  --accent: #8AA2FF; --accent-ink: #0F141B; --accent-soft: #1E2A4F;
+  --good: #5CCF8B; --good-soft: #15301F; --bad: #FF7F72; --bad-soft: #3A1B18;
+  --scrim: rgba(0, 0, 0, .65); --bronze: #B9763F; --silver: #8E9BA8; --gold: #C99A1A;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -101,7 +116,7 @@ img.avatar { object-fit: cover; }
 .mstrip { display: flex; gap: 10px; overflow-x: auto; padding: 14px 16px; scroll-snap-type: x proximity; scroll-padding-inline: 16px; overscroll-behavior-x: contain; }
 .mcard { flex: 1 0 186px; max-width: 240px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); min-width: 0; }
 .mcard.mine { border-color: var(--accent); }
-.mcard .mtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.mcard .mtop { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 34px; }
 .mcard .mtop .avatar { flex: none; width: 34px; height: 34px; font-size: 14px; }
 .mcard .mtop .rank { flex: none; }
 .mcard .rank { display: block; font-family: var(--font-num); font-size: 12px; color: var(--muted); text-align: right; }
@@ -116,17 +131,51 @@ img.avatar { object-fit: cover; }
 .mcard .dot { height: 16px; }
 .mcard .owed { display: flex; flex-direction: column; gap: 0; font-size: 12px; color: var(--muted); }
 .mcard .mstats { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
-/* 나만의 한 마디 */
-.motto { display: flex; align-items: flex-start; gap: 4px; font-size: 13px; color: var(--ink); min-width: 0; }
+/* 나만의 한 마디 (이름 옆) */
+.motto { display: flex; align-items: center; gap: 3px; font-size: 13px; color: var(--ink); min-width: 0; }
 .motto .mtext { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
-.motto.empty .mtext { color: var(--muted); opacity: .75; }
-.motto.bubble { flex: 1; align-self: center; font-size: 12px; line-height: 1.35; position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px 4px 4px 8px; }
-.motto.bubble::before { content: ""; position: absolute; left: -5px; top: 50%; width: 8px; height: 8px; background: var(--surface); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: translateY(-50%) rotate(45deg); }
-.motto.bubble .mtext { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.mottoedit { flex: none; background: none; border: 0; padding: 1px; margin-left: auto; color: var(--muted); border-radius: 4px; line-height: 0; cursor: pointer; }
+.motto.unset .mtext { color: var(--muted); opacity: .75; }
+.motto.inline { flex: 1 1 60px; font-size: 12px; font-weight: 400; color: var(--muted); }
+.motto.inline:not(.unset) .mtext { color: var(--ink); }
+.motto.inline .mtext { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcard .name { flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 2px; }
+.mottoedit { flex: none; background: none; border: 0; padding: 1px; color: var(--muted); border-radius: 4px; line-height: 0; cursor: pointer; }
 .mottoedit:hover { color: var(--accent); background: var(--accent-soft); }
-.mottoinput { width: 100%; min-width: 0; font: inherit; font-size: 13px; border: 1.5px solid var(--accent); background: var(--surface); border-radius: 6px; padding: 2px 6px; }
+.mottoinput { width: 100%; min-width: 0; font: inherit; font-size: 13px; border: 1.5px solid var(--accent); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 2px 6px; }
 .mhead .who { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.sync { font-size: 11px; letter-spacing: 0; color: var(--accent); margin-left: 6px; }
+
+/* 업적 메달과 레벨 */
+.medals { flex: 1; min-width: 0; display: flex; align-items: center; gap: 3px; flex-wrap: nowrap; overflow: hidden; background: none; border: 0; padding: 0; cursor: pointer; align-self: center; }
+.medals .lv { font-family: var(--font-num); font-size: 11px; font-weight: 600; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 1px 7px; margin-right: 2px; }
+.medals .more { font-size: 11px; color: var(--muted); }
+.medal { --tier: var(--line); width: 34px; height: 34px; border-radius: 50%; background: var(--tier); display: grid; place-items: center; flex: none; box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+.medal.sm { width: 20px; height: 20px; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.35); }
+.medal svg { width: 62%; height: 62%; fill: none; stroke: #FFFFFF; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.medal.t0 svg { stroke: var(--muted); }
+.medal.t1 { --tier: var(--bronze); }
+.medal.t2 { --tier: var(--silver); }
+.medal.t3 { --tier: var(--gold); }
+.tiername { font-size: 11px; font-weight: 700; border-radius: 4px; padding: 0 5px; color: #FFFFFF; vertical-align: 1px; }
+.tiername.t1 { background: var(--bronze); } .tiername.t2 { background: var(--silver); } .tiername.t3 { background: var(--gold); }
+.levelcard { display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.lvbig { font-family: var(--font-num); font-weight: 600; font-size: 26px; color: var(--accent); flex: none; }
+.lvinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.achbar { display: block; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.achbar span { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.achgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px; }
+.ach { display: flex; gap: 10px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.ach.locked { background: transparent; border-style: dashed; }
+.achtext { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; font-size: 12px; color: var(--muted); }
+.achtext b { font-size: 14px; color: var(--ink); }
+.mbody .levelcard, .mbody .ach { background: var(--bg); }
+
+/* 테마 고르기 */
+.skins { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.skin { display: flex; align-items: center; gap: 10px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 12px; padding: 10px 12px; font-weight: 500; cursor: pointer; }
+.skin[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.skin .sw { width: 30px; height: 30px; border-radius: 8px; border: 1px solid rgba(0,0,0,.12); display: grid; place-items: center; flex: none; }
+.skin .sw i { width: 12px; height: 12px; border-radius: 50%; display: block; }
 
 .kcalnote { margin: 8px 2px 0; font-size: 12px; color: var(--muted); }
 .mbody .kcalnote { margin: 0; }

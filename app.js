@@ -55,7 +55,7 @@
     try { data = await res.json(); } catch (_) { throw { error: "bad_response", message: "서버 응답을 읽지 못했어요. Apps Script 배포 설정을 확인해주세요." }; }
     if (!data.ok) {
       if (data.error === "invalid_key") {
-        try { localStorage.removeItem(KEY_STORE); } catch (_) {}
+        try { localStorage.removeItem(KEY_STORE); localStorage.removeItem("healthy.state"); } catch (_) {}
         showGate("링크가 더 이상 유효하지 않아요", "링크가 재발급되었거나 참가자 목록에서 빠졌어요. 내기를 만든 친구에게 새 링크를 받아주세요.");
       }
       throw data;
@@ -67,7 +67,7 @@
     return (e && e.message) || "저장하지 못했어요. 잠시 뒤 다시 시도해주세요.";
   };
 
-  function apply(data) {
+  function apply(data, fromCache) {
     if (data.me) S.me = data.me;
     if (data.members) S.members = data.members;
     if (data.entries) S.entries = data.entries;
@@ -75,15 +75,30 @@
     if (data.bodies) S.bodies = data.bodies;
     if (data.inbody) S.inbody = data.inbody;
     S.loaded = true;
+    if (!fromCache && data.me && data.entries) saveCache();
     render();
   }
 
+  // 마지막으로 받은 내용을 이 기기에 저장해 두고, 다음에 열 때 바로 보여줌
+  const CACHE_STORE = "healthy.state";
+  function saveCache() {
+    const data = { me: S.me, members: S.members, entries: S.entries, settings: S.settings, bodies: S.bodies, inbody: S.inbody };
+    try { localStorage.setItem(CACHE_STORE, JSON.stringify({ k: KEY, data })); } catch (_) {}
+  }
+  function readCache() {
+    try { const c = JSON.parse(localStorage.getItem(CACHE_STORE) || "null"); return c && c.k === KEY ? c.data : null; } catch (_) { return null; }
+  }
+  function dropCache() { try { localStorage.removeItem(CACHE_STORE); } catch (_) {} }
+  const setSync = (on) => { $("#syncNote").hidden = !on; };
+
   async function load() {
+    setSync(S.loaded);
     try { apply(await api("state")); }
     catch (e) {
       if (e && e.error === "invalid_key") return;
       if (!S.loaded) $("#board").innerHTML = `<div class="empty"><strong>기록을 불러오지 못했어요</strong>${esc(errText(e))}</div>`;
-    }
+      else toast("최신 기록을 불러오지 못했어요. 저장된 기록을 보여드리고 있어요");
+    } finally { setSync(false); }
   }
 
   // ---------- config ----------
@@ -145,7 +160,7 @@
   const mottoHtml = (m, cls) => {
     const mine = S.me && m.id === S.me.id;
     const text = (m.motto || "").trim();
-    return `<div class="motto ${cls || ""}${text ? "" : " empty"}" data-motto="${esc(m.id)}" title="${esc(text || "운동하자!")}"><span class="mtext">${esc(text || "운동하자!")}</span>${mine ? `<button type="button" class="mottoedit" data-motto-edit aria-label="한 마디 고치기">${PENCIL}</button>` : ""}</div>`;
+    return `<div class="motto ${cls || ""}${text ? "" : " unset"}" data-motto="${esc(m.id)}" title="${esc(text || "운동하자!")}"><span class="mtext">${esc(text || "운동하자!")}</span>${mine ? `<button type="button" class="mottoedit" data-motto-edit aria-label="한 마디 고치기">${PENCIL}</button>` : ""}</div>`;
   };
   const nameBtn = (m) => `<button type="button" class="namebtn" data-member="${esc(m.id)}">${esc(m.name || "친구")}</button>`;
   const fmtMinutes = (n) => (n >= 60 ? `${Math.floor(n / 60)}시간${n % 60 ? ` ${n % 60}분` : ""}` : `${n}분`);
@@ -249,8 +264,8 @@
           ? `<div class="owed"><span>지금까지 미달 <span class="num">${r.missed}</span>주</span><span>낼 벌금 <b>${esc(won(r.missed * c.fine))}</b></span></div>`
           : "";
         return `<div class="mcard${isMe ? " mine" : ""}">
-          <div class="mtop">${avatar(r.m)}${mottoHtml(r.m, "bubble")}${anyRec ? `<span class="rank">${i + 1}위</span>` : ""}</div>
-          <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div>
+          <div class="mtop">${avatar(r.m)}${medalsHtml(r.m.id)}${anyRec ? `<span class="rank">${i + 1}위</span>` : ""}</div>
+          <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}${mottoHtml(r.m, "inline")}</div>
           <div class="mscore"><span class="count">${done}<small>/${c.goal}일</small></span>${chip}</div>
           <div class="dots">${dots}</div>
           ${r.kcal ? `<span class="kcalsum">약 ${r.kcal.toLocaleString("ko-KR")}kcal</span>` : ""}
@@ -351,8 +366,8 @@
           + `<span>기록 <span class="num">${r.n}</span>개</span>`
         : "<span>아직 기록 없음</span>";
       return `<div class="mcard${isMe ? " mine" : ""}">
-        <div class="mtop">${avatar(r.m)}${mottoHtml(r.m, "bubble")}${anyRec ? `<span class="rank">${i + 1}위</span>` : ""}</div>
-        <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div>
+        <div class="mtop">${avatar(r.m)}${medalsHtml(r.m.id)}${anyRec ? `<span class="rank">${i + 1}위</span>` : ""}</div>
+        <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}${mottoHtml(r.m, "inline")}</div>
         <div class="mscore"><span class="count">${r.days}<small>일</small></span></div>
         <div class="mstats">${stats}</div>
       </div>`;
@@ -950,8 +965,117 @@
     if (ev.target.closest("#meAddInbody")) { delete $("#i-bmi").dataset.touched; IB.from = "me"; return openInbody(null); }
     if (ev.target.closest("#meEditBody")) return openBody();
     if (ev.target.closest("#meEditProfile")) return $("#rename").click();
+    if (ev.target.closest("#meTheme")) return $("#openTheme").click();
     inbodyAction(ev, "me");
   });
+
+  // --- 업적과 레벨: 운동 기록만으로 계산 (모든 멤버에게 같은 결과) ---
+  const ICONS = {
+    trophy: '<path d="M5 2.5h6v3a3 3 0 0 1-6 0zM5 3.5H3a2 2 0 0 0 2 3M11 3.5h2a2 2 0 0 1-2 3M8 8.5v3M5.5 13.5h5"/>',
+    star: '<path d="M8 2l1.8 3.8 4 .5-3 2.8.8 4L8 11.2 4.4 13.1l.8-4-3-2.8 4-.5z"/>',
+    bolt: '<path d="M9 1.8 3.8 9H8l-1 5.2L12.2 7H8z"/>',
+    calendar: '<rect x="2.5" y="3.5" width="11" height="10" rx="1.5"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3M5.5 9.5l1.6 1.6L10.5 8"/>',
+    clock: '<circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.2l2.2 1.4"/>',
+    route: '<circle cx="3.5" cy="12" r="1.5"/><circle cx="12.5" cy="4" r="1.5"/><path d="M5 12h4.5a2.2 2.2 0 0 0 0-4.4h-3a2.2 2.2 0 0 1 0-4.4H11"/>',
+    flame: '<path d="M8 1.8c.4 2.3 3.6 3.6 3.6 7A3.6 3.6 0 0 1 4.4 8.8c0-1.6.8-2.7 1.7-3.4.1 1.2.7 1.9 1.4 2.1C7.2 5.6 7.4 3.6 8 1.8z"/>',
+    grid: '<rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="9" y="2.5" width="4.5" height="4.5" rx="1"/><rect x="2.5" y="9" width="4.5" height="4.5" rx="1"/><rect x="9" y="9" width="4.5" height="4.5" rx="1"/>',
+    sun: '<circle cx="8" cy="8" r="2.8"/><path d="M8 1.5v1.8M8 12.7v1.8M1.5 8h1.8M12.7 8h1.8M3.4 3.4l1.3 1.3M11.3 11.3l1.3 1.3M3.4 12.6l1.3-1.3M11.3 4.7l1.3-1.3"/>',
+  };
+  const TIER = ["", "브론즈", "실버", "골드"];
+  const ACHIEVEMENTS = [
+    { id: "goal", icon: "trophy", name: "목표 연속 달성", unit: "주", tiers: [1, 4, 12], v: (s) => s.bestGoalStreak, desc: (n, c) => `주 ${c.goal}일 목표를 ${n}주 연속 달성` },
+    { id: "perfect", icon: "star", name: "매일 운동한 주", unit: "번", tiers: [1, 3, 10], v: (s) => s.perfectWeeks, desc: (n) => `월~일 7일을 모두 운동한 주 ${n}번` },
+    { id: "streak", icon: "bolt", name: "연속 운동", unit: "일", tiers: [3, 7, 30], v: (s) => s.bestDayStreak, desc: (n) => `${n}일 연속 운동` },
+    { id: "days", icon: "calendar", name: "누적 운동일", unit: "일", tiers: [10, 50, 150], v: (s) => s.days, desc: (n) => `운동한 날 ${n}일` },
+    { id: "hours", icon: "clock", name: "누적 운동 시간", unit: "시간", tiers: [10, 50, 150], v: (s) => Math.floor(s.mins / 60), desc: (n) => `운동 시간 ${n}시간` },
+    { id: "distance", icon: "route", name: "누적 거리", unit: "km", tiers: [50, 200, 500], v: (s) => Math.floor(s.km), desc: (n) => `기록한 거리 ${n}km` },
+    { id: "kcal", icon: "flame", name: "누적 칼로리", unit: "kcal", tiers: [10000, 50000, 150000], v: (s) => s.kcal, desc: (n) => `소모 칼로리(추정) ${n.toLocaleString("ko-KR")}kcal` },
+    { id: "variety", icon: "grid", name: "다양한 종목", unit: "종목", tiers: [3, 5, 8], v: (s) => s.kinds, desc: (n) => `서로 다른 종목 ${n}가지` },
+    { id: "weekend", icon: "sun", name: "주말 전사", unit: "번", tiers: [2, 8, 20], v: (s) => s.weekends, desc: (n) => `토·일 이틀 모두 운동한 주말 ${n}번` },
+  ];
+  const XP_RULE = "운동한 날 10XP · 주간 목표 달성 30XP · 업적 단계마다 50XP";
+
+  function statsFor(list, goal) {
+    const dates = [...new Set(list.map((e) => e.date))].sort();
+    const set = new Set(dates);
+    let bestDayStreak = 0, run = 0, prev = null;
+    dates.forEach((d) => {
+      const t = parseYmd(d);
+      run = prev && Math.round((t - prev) / 864e5) === 1 ? run + 1 : 1;
+      bestDayStreak = Math.max(bestDayStreak, run); prev = t;
+    });
+    let bestGoalStreak = 0, goalWeeks = 0, perfectWeeks = 0, weekends = 0;
+    if (dates.length) {
+      const thisMon = mondayOf(new Date());
+      let w = mondayOf(parseYmd(dates[0])), streak = 0, guard = 0;
+      while (w <= thisMon && guard++ < 1000) {
+        let n = 0;
+        for (let k = 0; k < 7; k++) if (set.has(ymd(addDays(w, k)))) n++;
+        if (n >= goal) { goalWeeks++; streak++; bestGoalStreak = Math.max(bestGoalStreak, streak); }
+        else if (+w !== +thisMon) streak = 0; // 진행 중인 이번 주는 아직 끊긴 걸로 보지 않음
+        if (n === 7) perfectWeeks++;
+        if (set.has(ymd(addDays(w, 5))) && set.has(ymd(addDays(w, 6)))) weekends++;
+        w = addDays(w, 7);
+      }
+    }
+    return {
+      days: dates.length, bestDayStreak, bestGoalStreak, goalWeeks, perfectWeeks, weekends,
+      mins: list.reduce((s, e) => s + (Number(e.minutes) || 0), 0),
+      km: list.reduce((s, e) => s + (Number(e.km) || 0), 0),
+      kcal: list.reduce((s, e) => s + (Number(e.kcal) || 0), 0),
+      kinds: new Set(list.map((e) => String(e.kind || "").trim()).filter(Boolean)).size,
+    };
+  }
+  function progressFor(memberId) {
+    const c = cfg();
+    const st = statsFor(S.entries.filter((e) => e.memberId === memberId), c.goal);
+    const items = ACHIEVEMENTS.map((a) => {
+      const value = a.v(st);
+      const tier = a.tiers.filter((t) => value >= t).length;
+      return { a, value, tier, next: a.tiers[tier] };
+    });
+    const xp = st.days * 10 + st.goalWeeks * 30 + items.reduce((s, i) => s + i.tier * 50, 0);
+    const level = Math.max(1, Math.floor((1 + Math.sqrt(1 + (4 * xp) / 50)) / 2));
+    return { st, items, xp, level, from: 50 * level * (level - 1), to: 50 * level * (level + 1) };
+  }
+  const medal = (it, small) => `<span class="medal t${it.tier}${small ? " sm" : ""}" title="${esc(`${it.a.name}${it.tier ? ` ${TIER[it.tier]}` : ""}`)}"><svg viewBox="0 0 16 16" aria-hidden="true">${ICONS[it.a.icon]}</svg></span>`;
+  // 멤버 카드: 레벨 + 가장 높은 업적 3개
+  function medalsHtml(memberId) {
+    const p = progressFor(memberId);
+    const won = p.items.filter((i) => i.tier).sort((x, y) => y.tier - x.tier || ACHIEVEMENTS.indexOf(x.a) - ACHIEVEMENTS.indexOf(y.a));
+    const shown = won.slice(0, 2).map((i) => medal(i, true)).join("");
+    const label = `레벨 ${p.level}${won.length ? `, 업적 ${won.length}개: ${won.map((i) => `${i.a.name} ${TIER[i.tier]}`).join(", ")}` : ""}`;
+    return `<button type="button" class="medals" data-member="${esc(memberId)}" aria-label="${esc(label)}" title="${esc(label)}"><span class="lv">Lv.${p.level}</span>${shown}${won.length > 2 ? `<span class="more">+${won.length - 2}</span>` : ""}</button>`;
+  }
+  // 내 페이지·멤버 상세의 업적 목록
+  function achievementsHtml(memberId, mine) {
+    const p = progressFor(memberId), c = cfg();
+    const pct = Math.min(100, ((p.xp - p.from) / (p.to - p.from)) * 100);
+    const cards = p.items.map((it) => {
+      const goalN = it.next || it.a.tiers[it.a.tiers.length - 1];
+      const base = it.tier ? it.a.tiers[it.tier - 1] : 0;
+      const prog = it.next ? Math.min(100, ((it.value - base) / (it.next - base)) * 100) : 100;
+      const val = it.a.unit === "kcal" ? it.value.toLocaleString("ko-KR") : it.value;
+      return `<div class="ach${it.tier ? "" : " locked"}">
+        ${medal(it)}
+        <div class="achtext">
+          <b>${esc(it.a.name)}${it.tier ? ` <span class="tiername t${it.tier}">${TIER[it.tier]}</span>` : ""}</b>
+          <span>${esc(it.next ? `다음: ${it.a.desc(goalN, c)}` : `최고 단계 달성: ${it.a.desc(goalN, c)}`)}</span>
+          <span class="achbar"><span style="width:${prog.toFixed(0)}%"></span></span>
+          <small class="num">${esc(String(val))}${it.a.unit}${it.next ? ` / ${it.a.unit === "kcal" ? goalN.toLocaleString("ko-KR") : goalN}${it.a.unit}` : ""}</small>
+        </div>
+      </div>`;
+    }).join("");
+    return `<div class="levelcard">
+        <div class="lvbig">Lv.${p.level}</div>
+        <div class="lvinfo">
+          <span class="achbar"><span style="width:${pct.toFixed(0)}%"></span></span>
+          <small class="num">${p.xp.toLocaleString("ko-KR")} XP · 다음 레벨까지 ${(p.to - p.xp).toLocaleString("ko-KR")} XP</small>
+          ${mine ? `<small>${XP_RULE}</small>` : ""}
+        </div>
+      </div>
+      <div class="achgrid">${cards}</div>`;
+  }
 
   // --- 내 페이지: 내 운동 기록과 인바디 변화를 그래프로 ---
   const ALL_IB = IB_FIELDS.map(([k, l, u]) => [k, l, u]);
@@ -1069,12 +1193,16 @@
     $("#mePage").innerHTML = `
       <div class="mehead">${avatar(meM)}
         <div class="who"><b>${esc(meM.name || "나")}</b>${mottoHtml(meM)}${facts ? `<div class="facts">${facts}</div>` : `<span class="veil-note">‘내 몸 기록 수정’에서 키·몸무게 등을 넣을 수 있어요.</span>`}</div>
-        <div class="row-btns"><button type="button" class="btn" id="meEditProfile">프로필 수정</button><button type="button" class="btn" id="meEditBody">내 몸 기록 수정</button></div>
+        <div class="row-btns"><button type="button" class="btn" id="meEditProfile">프로필 수정</button><button type="button" class="btn" id="meEditBody">내 몸 기록 수정</button><button type="button" class="btn" id="meTheme">테마</button></div>
       </div>
       <section>
         <h3>내 운동 요약</h3>
         <div class="tiles">${tiles.map(([l, v, u]) => `<div class="tile"><span>${l}</span><b>${esc(String(v))}${u ? `<small>${u}</small>` : ""}</b></div>`).join("")}</div>
         ${kcal ? `<p class="kcalnote">${KNOTE}</p>` : ""}
+      </section>
+      <section>
+        <h3>업적</h3>
+        ${achievementsHtml(S.me.id, true)}
       </section>
       <section>
         <h3>최근 12주</h3>
@@ -1107,6 +1235,7 @@
     $("#mHead").innerHTML = `${avatar(m)}<div class="who"><b>${esc(m.name || "친구")}</b>${mottoHtml(m)}</div>`;
     $("#mBody").innerHTML = `
       <section><h4>이번 달</h4><p class="bmr">${list.length ? `운동 <b>${days}</b>일 · 총 <b>${esc(fmtMinutes(mins))}</b>${kcal ? ` · 약 <b>${kcal.toLocaleString("ko-KR")}</b>kcal` : ""}` : "이번 달 기록이 아직 없어요."}</p>${kcal ? `<p class="kcalnote">칼로리는 대략적인 추정치(±20~30%)예요.</p>` : ""}</section>
+      <section><h4>업적</h4>${achievementsHtml(id, false)}</section>
       <section><h4>공개한 정보</h4>${facts ? `<div class="facts">${facts}</div>` : `<p class="veil-note">공개한 몸 정보가 없어요.</p>`}</section>
       <section><h4>인바디</h4>${ib.length ? trendHtml(ib) + `<div class="iblist">${[...ib].reverse().map((r) => inbodyItem(r, false)).join("")}</div>` : `<p class="veil-note">공개한 인바디 기록이 없어요.</p>`}</section>`;
     openSheet("memberSheet");
@@ -1137,6 +1266,24 @@
     input.addEventListener("blur", () => finish(true));
   });
 
+  // 테마: 기기마다 저장, 색은 style.css의 [data-skin] 토큰
+  const SKINS = [
+    ["", "블루", "#EBEFF3", "#2147D6"], ["cherry", "체리 핑크", "#FBEFF3", "#D6336C"], ["mint", "민트", "#E9F5F0", "#0E8565"],
+    ["lavender", "라벤더", "#F1EFFA", "#6D4ED8"], ["lemon", "레몬", "#FAF7E6", "#946200"], ["night", "다크 나이트", "#0F141B", "#8AA2FF"],
+  ];
+  function renderSkins() {
+    const cur = document.documentElement.dataset.skin || "";
+    $("#skins").innerHTML = SKINS.map(([id, name, bg, ac]) => `<button type="button" class="skin" data-skin="${id}" aria-pressed="${id === cur}"><span class="sw" style="background:${bg}"><i style="background:${ac}"></i></span>${name}</button>`).join("");
+  }
+  $("#openTheme").addEventListener("click", () => { renderSkins(); openSheet("themeSheet"); });
+  $("#skins").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-skin]"); if (!b) return;
+    const id = b.dataset.skin;
+    if (id) document.documentElement.dataset.skin = id; else delete document.documentElement.dataset.skin;
+    try { if (id) localStorage.setItem("healthy.skin", id); else localStorage.removeItem("healthy.skin"); } catch (_) {}
+    renderSkins();
+  });
+
   // ---------- page events ----------
   $("#prev").addEventListener("click", () => { if (S.view === "week") S.weekOffset--; else S.monthOffset--; render(); });
   $("#next").addEventListener("click", () => {
@@ -1160,10 +1307,13 @@
   $("#openBody").addEventListener("click", openBody);
   $("#board").addEventListener("click", (ev) => {
     const b = ev.target.closest("[data-member]"); if (!b) return;
-    if (S.me && b.dataset.member === S.me.id) openBody(); else openMember(b.dataset.member);
+    const mine = S.me && b.dataset.member === S.me.id;
+    if (mine && b.classList.contains("medals")) { setView("me"); window.scrollTo(0, 0); }
+    else if (mine) openBody(); else openMember(b.dataset.member);
   });
   $("#signout").addEventListener("click", () => {
     try { localStorage.removeItem(KEY_STORE); } catch (_) {}
+    dropCache();
     KEY = ""; S.loaded = false;
     showGate("이 기기에서 나갔어요", "다시 들어오려면 받은 링크를 눌러주세요.");
   });
@@ -1210,6 +1360,8 @@
   }
   if (!KEY) { showGate(); return; }
   $("#app").hidden = false;
+  const cached = readCache();
+  if (cached) apply(cached, true);
   load();
   // 친구들의 새 기록을 가져오려고 1분마다, 그리고 다시 화면에 돌아왔을 때 새로고침
   setInterval(() => { if (KEY && document.visibilityState === "visible" && !anySheetOpen() && !editingMotto()) load(); }, 60000);

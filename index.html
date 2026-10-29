@@ -22,6 +22,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="style.css">
+<script>try { var sk = localStorage.getItem("healthy.skin"); if (sk) document.documentElement.dataset.skin = sk; } catch (e) {}</script>
 </head>
 <body>
 
@@ -36,7 +37,7 @@
 
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div class="eyebrow">JJJ Healthy Girl</div>
+    <div class="eyebrow">JJJ Healthy Girl <span class="sync" id="syncNote" hidden>최신 기록 확인 중…</span></div>
     <h1 id="title">주 3회 운동 내기</h1>
     <div class="rules" id="rules"></div>
     <ol class="rulelist" id="ruleList" hidden></ol>
@@ -78,6 +79,7 @@
     <span id="meLine"></span>
     <button type="button" class="linkbtn" id="rename">프로필 수정</button>
     <button type="button" class="linkbtn" id="openBody">내 몸 기록</button>
+    <button type="button" class="linkbtn" id="openTheme">테마</button>
     <button type="button" class="linkbtn" id="manage" hidden>참가자 관리</button>
     <button type="button" class="linkbtn" id="signout">이 기기에서 나가기</button>
   </footer>
@@ -257,6 +259,16 @@
       <button type="submit" class="btn primary" id="ibSave">저장</button>
     </div>
   </form>
+</div>
+
+<!-- 테마 고르기 (이 기기에만 저장) -->
+<div class="scrim" id="themeSheet" hidden>
+  <div class="sheet">
+    <h3>테마</h3>
+    <p class="veil-note">고른 테마는 이 기기에서만 적용돼요.</p>
+    <div class="skins" id="skins"></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-close>닫기</button></div>
+  </div>
 </div>
 
 <!-- 멤버 상세 -->

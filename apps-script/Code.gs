@@ -49,6 +49,7 @@ function setup() {
   let admin = table_('members').rows.find((m) => m.role === 'admin');
   if (!admin) admin = addMember_('나', 'admin');
   photoFolder_();
+  clearCache_();
   Logger.log('관리자 키: ' + admin.key);
   Logger.log('관리자 링크: <GitHub Pages 주소>#k=' + admin.key);
 }
@@ -61,6 +62,7 @@ function doGet() {
 }
 
 function doPost(e) {
+  REQ_CACHE = {};
   let req;
   try {
     req = JSON.parse(e.postData.contents);
@@ -592,11 +594,52 @@ function sheet_(name) {
   return sh;
 }
 
+// ---------------------------------------------------------------------------
+// 읽기 캐시: 시트 읽기가 가장 느려서, 표 내용을 잠깐(5분) 저장해 두고 씀.
+// 앱이 저장할 때(withLock_)와 시트를 직접 고칠 때(onEdit)는 바로 지움.
+// ---------------------------------------------------------------------------
+const CACHE_TTL = 300;
+let REQ_CACHE = {};
+
+function scriptCache_() {
+  try { return CacheService.getScriptCache(); } catch (_) { return null; }
+}
+
+function clearCache_() {
+  REQ_CACHE = {};
+  const c = scriptCache_();
+  if (c) try { c.removeAll(Object.keys(SHEETS).map((n) => 't:' + n)); } catch (_) {}
+}
+
+// 시트를 손으로 고치면 캐시를 비움 (행 삭제·추가는 최대 5분 뒤 반영)
+function onEdit() {
+  clearCache_();
+}
+
 function table_(name) {
-  const sh = sheet_(name);
+  if (REQ_CACHE[name]) return REQ_CACHE[name];
+  const c = scriptCache_();
+  let rows = null;
+  if (c) {
+    try { const hit = c.get('t:' + name); if (hit) rows = JSON.parse(hit); } catch (_) {}
+  }
+  if (!rows) {
+    rows = readRows_(sheet_(name), name);
+    if (c) {
+      const s = JSON.stringify(rows);
+      if (s.length < 95000) try { c.put('t:' + name, s, CACHE_TTL); } catch (_) {}
+    }
+  }
+  let sh = null;
+  const t = { rows, get sh() { return sh || (sh = sheet_(name)); } };
+  REQ_CACHE[name] = t;
+  return t;
+}
+
+function readRows_(sh, name) {
   const cols = SHEETS[name];
   const last = sh.getLastRow();
-  if (last < 2) return { sh, rows: [] };
+  if (last < 2) return [];
   const vals = sh.getRange(2, 1, last - 1, cols.length).getDisplayValues();
   const rows = [];
   vals.forEach((v, i) => {
@@ -605,7 +648,7 @@ function table_(name) {
     cols.forEach((c, j) => (o[c] = String(v[j]).trim()));
     rows.push(o);
   });
-  return { sh, rows };
+  return rows;
 }
 
 // 모든 칸을 일반 텍스트로 써서 날짜·숫자 자동 변환을 막음
@@ -663,12 +706,15 @@ function writeSettings_(s) {
 // ---------------------------------------------------------------------------
 // 기타
 // ---------------------------------------------------------------------------
+// 저장은 항상 최신 시트를 읽고 하고, 끝나면 캐시를 비움
 function withLock_(fn) {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) throw fail_('busy', '다른 저장이 진행 중이에요. 잠시 뒤 다시 시도해주세요.');
   try {
+    clearCache_();
     return fn();
   } finally {
+    clearCache_();
     lock.releaseLock();
   }
 }
