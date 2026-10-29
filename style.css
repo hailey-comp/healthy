@@ -248,9 +248,10 @@ img.avatar { object-fit: cover; }
 }
 
 /* Sheet */
-.scrim { position: fixed; inset: 0; z-index: 30; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
+/* 아이폰 사파리는 주소창·도구막대가 보일 때 화면이 더 작아서, 실제로 보이는 높이(dvh) 기준으로 맞춤 */
+.scrim { position: fixed; inset: 0; z-index: 30; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; padding-top: env(safe-area-inset-top, 0px); overscroll-behavior: contain; }
 .sheet {
-  background: var(--surface); width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto;
+  background: var(--surface); width: 100%; max-width: 560px; max-height: 92vh; max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
   border-radius: 18px 18px 0 0;
   padding: 20px max(18px, env(safe-area-inset-right, 0px)) calc(20px + env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px));
   display: flex; flex-direction: column; gap: 16px;

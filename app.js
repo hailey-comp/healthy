@@ -383,7 +383,11 @@
 
   // ---------- sheets ----------
   const anySheetOpen = () => [...document.querySelectorAll(".scrim")].some((s) => !s.hidden);
-  function openSheet(id) { document.querySelectorAll(".scrim").forEach((s) => (s.hidden = s.id !== id)); }
+  function openSheet(id) {
+    document.querySelectorAll(".scrim").forEach((s) => (s.hidden = s.id !== id));
+    const sheet = document.querySelector(`#${id} .sheet`);
+    if (sheet) sheet.scrollTop = 0;
+  }
   function closeSheets() { document.querySelectorAll(".scrim").forEach((s) => (s.hidden = true)); }
   document.querySelectorAll(".scrim:not(.confirm)").forEach((s) => {
     s.addEventListener("click", (ev) => { if (ev.target === s || ev.target.closest("[data-close]")) closeSheets(); });
