@@ -45,15 +45,18 @@
   <div class="viewtabs" role="group" aria-label="보기 방식">
     <button type="button" id="viewWeek" aria-pressed="true">주간</button>
     <button type="button" id="viewMonth" aria-pressed="false">월별</button>
+    <button type="button" id="viewMe" aria-pressed="false">내 페이지</button>
   </div>
 
-  <nav class="weeknav" aria-label="기간 선택">
+  <div class="mepage" id="mePage" hidden></div>
+
+  <nav class="weeknav" id="periodNav" aria-label="기간 선택">
     <button id="prev" type="button" aria-label="이전">‹</button>
     <div class="label"><b id="weekTitle">이번 주</b><span id="weekRange" class="num"></span></div>
     <button id="next" type="button" aria-label="다음">›</button>
   </nav>
 
-  <section>
+  <section id="secMembers">
     <h2>멤버 <small id="boardSub">요일별 운동한 날</small></h2>
     <div class="board" id="board">
       <div class="empty"><strong>기록을 불러오는 중이에요</strong>참가한 친구들의 이번 주 운동일이 여기에 표시돼요.</div>
@@ -61,7 +64,7 @@
     <p class="kcalnote" id="boardKcalNote" hidden>칼로리는 대략적인 추정치(±20~30%)예요.</p>
   </section>
 
-  <section>
+  <section id="secFeed">
     <h2>운동 기록 <small id="feedCount"></small></h2>
     <div class="tabs">
       <button type="button" class="tab" id="tabAll" aria-pressed="true">전체</button>
@@ -225,14 +228,15 @@
   <form class="sheet" id="inbodyForm" novalidate>
     <h3 id="ibTitle">인바디 기록</h3>
     <label class="field"><span>측정일</span><input type="date" id="i-date"></label>
-    <div class="pair">
-      <label class="field"><span>체중 (kg)</span><input type="number" id="i-weight" step="0.1" inputmode="decimal"></label>
-      <label class="field"><span>골격근량 (kg)</span><input type="number" id="i-muscle" step="0.1" inputmode="decimal"></label>
-      <label class="field"><span>체지방량 (kg)</span><input type="number" id="i-fatMass" step="0.1" inputmode="decimal"></label>
-      <label class="field"><span>체지방률 (%)</span><input type="number" id="i-fatPct" step="0.1" inputmode="decimal"></label>
-      <label class="field"><span>BMI</span><input type="number" id="i-bmi" step="0.1" inputmode="decimal"></label>
-      <label class="field"><span>기초대사량 (kcal)</span><input type="number" id="i-bmr" inputmode="numeric"></label>
-      <label class="field"><span>인바디 점수</span><input type="number" id="i-score" inputmode="numeric"></label>
+    <div class="pubquick"><span>공개 범위</span><button type="button" class="act" data-ipall="1">모두 공개</button><button type="button" class="act" data-ipall="0">모두 나만 보기</button></div>
+    <div class="ibfields">
+      <div class="bfrow"><label class="field"><span>체중 (kg)</span><input type="number" id="i-weight" step="0.1" inputmode="decimal"></label><label class="pubtoggle"><input type="checkbox" data-ipub="weight">공개</label></div>
+      <div class="bfrow"><label class="field"><span>골격근량 (kg)</span><input type="number" id="i-muscle" step="0.1" inputmode="decimal"></label><label class="pubtoggle"><input type="checkbox" data-ipub="muscle">공개</label></div>
+      <div class="bfrow"><label class="field"><span>체지방량 (kg)</span><input type="number" id="i-fatMass" step="0.1" inputmode="decimal"></label><label class="pubtoggle"><input type="checkbox" data-ipub="fatMass">공개</label></div>
+      <div class="bfrow"><label class="field"><span>체지방률 (%)</span><input type="number" id="i-fatPct" step="0.1" inputmode="decimal"></label><label class="pubtoggle"><input type="checkbox" data-ipub="fatPct">공개</label></div>
+      <div class="bfrow"><label class="field"><span>BMI</span><input type="number" id="i-bmi" step="0.1" inputmode="decimal"></label><label class="pubtoggle"><input type="checkbox" data-ipub="bmi">공개</label></div>
+      <div class="bfrow"><label class="field"><span>기초대사량 (kcal)</span><input type="number" id="i-bmr" inputmode="numeric"></label><label class="pubtoggle"><input type="checkbox" data-ipub="bmr">공개</label></div>
+      <div class="bfrow"><label class="field"><span>인바디 점수</span><input type="number" id="i-score" inputmode="numeric"></label><label class="pubtoggle"><input type="checkbox" data-ipub="score">공개</label></div>
     </div>
     <div class="field">
       <span>결과지 사진 (선택)</span>
@@ -241,15 +245,12 @@
         <div class="row-btns">
           <label class="btn" for="i-photo" id="i-pick">사진 선택</label>
           <button type="button" class="btn" id="i-removePhoto" hidden>사진 빼기</button>
+          <label class="pubtoggle"><input type="checkbox" data-ipub="photo">공개</label>
         </div>
         <input type="file" id="i-photo" accept="image/*" hidden>
       </div>
     </div>
-    <fieldset class="vis">
-      <legend>공개 범위</legend>
-      <label><input type="radio" name="i-vis" value="private" checked>나만 보기</label>
-      <label><input type="radio" name="i-vis" value="public">친구들에게 공개</label>
-    </fieldset>
+    <p class="veil-note">체크하지 않은 항목은 나만 볼 수 있어요.</p>
     <p class="err" id="ibErr" hidden></p>
     <div class="sheet-foot">
       <button type="button" class="btn" id="ibCancel">취소</button>

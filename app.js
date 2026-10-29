@@ -16,7 +16,7 @@
 
   const S = {
     me: null, members: [], entries: [], settings: null, loaded: false,
-    view: (() => { try { return localStorage.getItem("healthy.view") === "month" ? "month" : "week"; } catch (_) { return "week"; } })(),
+    view: (() => { try { const v = localStorage.getItem("healthy.view"); return v === "month" || v === "me" ? v : "week"; } catch (_) { return "week"; } })(),
     weekOffset: 0, monthOffset: 0, mineOnly: false,
     editingId: null, photoFile: null, photoRemoved: false, intensity: "normal",
     bodies: {}, inbody: [],
@@ -190,7 +190,12 @@
     // 기간: 주간 또는 월별
     const isWeek = S.view === "week";
     $("#viewWeek").setAttribute("aria-pressed", String(isWeek));
-    $("#viewMonth").setAttribute("aria-pressed", String(!isWeek));
+    $("#viewMonth").setAttribute("aria-pressed", String(S.view === "month"));
+    $("#viewMe").setAttribute("aria-pressed", String(S.view === "me"));
+    const meView = S.view === "me";
+    ["#periodNav", "#secMembers", "#secFeed"].forEach((sel) => ($(sel).hidden = meView));
+    $("#mePage").hidden = !meView;
+    if (meView) renderMePage();
     const mon = selMonday();
     const sun = addDays(mon, 6);
     const m1 = selMonth();
@@ -701,9 +706,9 @@
   }
 
   // 측정값 하나당 작은 선 그래프 하나 (단위가 달라 한 축에 겹치지 않음)
-  function trendHtml(records) {
+  function trendHtml(records, metrics) {
     const W = 300, H = 92, L = 34, R = 10, T = 10, B = 20;
-    const charts = TREND.map(([k, label, unit]) => {
+    const charts = (metrics || TREND).map(([k, label, unit]) => {
       const pts = records.filter((r) => r[k] != null).map((r) => ({ d: r.date, v: r[k] }));
       if (!pts.length) return "";
       const first = pts[0], last = pts[pts.length - 1];
@@ -768,6 +773,14 @@
   document.addEventListener("pointermove", trendHover);
   document.addEventListener("pointerdown", trendHover);
 
+  // 내 기록에 붙는 공개 상태 표시
+  function pubBadge(r) {
+    const keys = IB_FIELDS.filter(([k]) => r[k] != null).map(([k]) => k).concat(validFileId(r.photo) ? ["photo"] : []);
+    const on = keys.filter((k) => (r.pub || []).includes(k));
+    if (!on.length) return "나만 보기";
+    if (on.length === keys.length) return "모두 공개";
+    return "일부 공개: " + on.map((k) => (k === "photo" ? "사진" : IB_FIELDS.find((f) => f[0] === k)[1])).join(", ");
+  }
   function inbodyItem(r, mine) {
     const vals = IB_FIELDS.filter(([k]) => r[k] != null).map(([k, l, u]) => `<span>${l} <b class="num">${r[k]}</b>${u}</span>`).join("");
     const acts = [
@@ -775,7 +788,7 @@
       mine ? `<button type="button" class="act" data-ib="edit" data-id="${esc(r.id)}">수정</button><button type="button" class="act danger" data-ib="del" data-id="${esc(r.id)}">삭제</button>` : "",
     ].join("");
     return `<div class="ibitem">
-      <div class="ibtop"><b class="num">${fmtDate(r.date)}</b>${mine ? `<span class="badge">${r.public ? "친구들에게 공개" : "나만 보기"}</span>` : ""}</div>
+      <div class="ibtop"><b class="num">${fmtDate(r.date)}</b>${mine ? `<span class="badge">${esc(pubBadge(r))}</span>` : ""}</div>
       <div class="ibvals">${vals}</div>${acts ? `<div class="actions">${acts}</div>` : ""}
     </div>`;
   }
@@ -832,7 +845,8 @@
   });
 
   // --- 인바디 작성/수정 ---
-  const IB = { id: null, file: null, url: null, removed: false };
+  const IB = { id: null, file: null, url: null, removed: false, from: "body" };
+  const backFromInbody = () => { if (IB.from === "me") closeSheets(); else { renderBodySheet(); openSheet("bodySheet"); } };
   function setIbPreview(src) {
     if (IB.url && src !== IB.url) { URL.revokeObjectURL(IB.url); IB.url = null; }
     const img = $("#i-preview");
@@ -849,7 +863,8 @@
     IB_FIELDS.forEach(([k]) => ($("#i-" + k).value = r && r[k] != null ? r[k] : ""));
     $("#i-photo").value = "";
     setIbPreview(r && validFileId(r.photo) ? photoSrc(r.photo, 800) : null);
-    document.querySelector(`input[name="i-vis"][value="${r && r.public ? "public" : "private"}"]`).checked = true;
+    const pub = (r && r.pub) || [];
+    $("#inbodyForm").querySelectorAll("[data-ipub]").forEach((c) => (c.checked = pub.includes(c.dataset.ipub)));
     $("#ibErr").hidden = true;
     openSheet("inbodySheet");
   }
@@ -859,6 +874,10 @@
     if (h && w && !$("#i-bmi").dataset.touched) $("#i-bmi").value = (Math.round((w / ((h / 100) ** 2)) * 10) / 10).toString();
   });
   $("#i-bmi").addEventListener("input", () => ($("#i-bmi").dataset.touched = "1"));
+  $("#inbodyForm").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-ipall]"); if (!b) return;
+    $("#inbodyForm").querySelectorAll("[data-ipub]").forEach((c) => (c.checked = b.dataset.ipall === "1"));
+  });
   $("#i-photo").addEventListener("change", () => {
     const f = $("#i-photo").files[0]; if (!f) return;
     IB.file = f; IB.removed = false;
@@ -866,24 +885,26 @@
     setIbPreview(url); IB.url = url;
   });
   $("#i-removePhoto").addEventListener("click", () => { IB.file = null; IB.removed = true; $("#i-photo").value = ""; setIbPreview(null); });
-  $("#ibCancel").addEventListener("click", () => { delete $("#i-bmi").dataset.touched; renderBodySheet(); openSheet("bodySheet"); });
-  $("#addInbody").addEventListener("click", () => { delete $("#i-bmi").dataset.touched; openInbody(null); });
+  $("#ibCancel").addEventListener("click", () => { delete $("#i-bmi").dataset.touched; backFromInbody(); });
+  $("#addInbody").addEventListener("click", () => { delete $("#i-bmi").dataset.touched; IB.from = "body"; openInbody(null); });
 
   $("#inbodyForm").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const err = $("#ibErr");
-    const record = { id: IB.id || undefined, date: $("#i-date").value, public: document.querySelector('input[name="i-vis"]:checked').value === "public", removePhoto: IB.removed };
+    const pubKeys = [...$("#inbodyForm").querySelectorAll("[data-ipub]:checked")].map((c) => c.dataset.ipub);
+    const record = { id: IB.id || undefined, date: $("#i-date").value, pub: pubKeys, removePhoto: IB.removed };
     IB_FIELDS.forEach(([k]) => (record[k] = $("#i-" + k).value === "" ? "" : Number($("#i-" + k).value)));
     if (!validDate(record.date)) { err.textContent = "측정일을 골라주세요."; err.hidden = false; return; }
-    const filled = IB_FIELDS.filter(([k]) => record[k] !== "").map(([k, l, u]) => `${l} ${record[k]}${u}`);
+    const filled = IB_FIELDS.filter(([k]) => record[k] !== "");
     if (!filled.length) { err.textContent = "측정값을 하나 이상 입력해주세요."; err.hidden = false; return; }
     err.hidden = true;
     const hasPhoto = !!IB.file || (!IB.removed && IB.id && validFileId((S.inbody.find((x) => x.id === IB.id) || {}).photo));
-    const items = [`${fmtDate(record.date)} 측정값: ${filled.join(", ")}`].concat(hasPhoto ? ["결과지 사진"] : []);
+    const pub = [], priv = [];
+    filled.forEach(([k, l, u]) => (pubKeys.includes(k) ? pub : priv).push(`${l} ${record[k]}${u}`));
+    if (hasPhoto) (pubKeys.includes("photo") ? pub : priv).push("결과지 사진");
     const ok = await confirmVisibility({
-      title: "인바디 기록 공개 범위 확인",
-      pub: record.public ? items : [], priv: record.public ? [] : items,
-      notes: privacyNotes(record.weight !== ""),
+      title: `인바디 기록(${fmtDate(record.date)}) 공개 범위 확인`,
+      pub, priv, notes: privacyNotes(record.weight !== ""),
     });
     if (!ok) return;
     const btn = $("#ibSave"); btn.disabled = true;
@@ -895,26 +916,172 @@
       }
       apply(await api("saveInbody", { record }));
       delete $("#i-bmi").dataset.touched;
-      renderBodySheet(); openSheet("bodySheet");
+      backFromInbody();
       toast("인바디 기록을 저장했어요");
     } catch (e) { err.textContent = errText(e); err.hidden = false; }
     finally { btn.disabled = false; btn.textContent = "저장"; }
   });
 
-  $("#myInbody").addEventListener("click", async (ev) => {
+  async function inbodyAction(ev, from) {
     const b = ev.target.closest("[data-ib]"); if (!b) return;
     const id = b.dataset.id;
     if (b.dataset.ib === "zoom") return openZoom(id);
-    if (b.dataset.ib === "edit") { delete $("#i-bmi").dataset.touched; $("#i-bmi").dataset.touched = "1"; return openInbody(id); }
+    if (b.dataset.ib === "edit") { IB.from = from; $("#i-bmi").dataset.touched = "1"; return openInbody(id); }
     if (!b.classList.contains("armed")) {
       b.classList.add("armed"); b.textContent = "한 번 더 누르면 삭제";
       setTimeout(() => { if (b.isConnected) { b.classList.remove("armed"); b.textContent = "삭제"; } }, 3500);
       return;
     }
     b.disabled = true;
-    try { apply(await api("deleteInbody", { id })); renderBodySheet(); toast("삭제했어요"); }
+    try { apply(await api("deleteInbody", { id })); if (from === "body") renderBodySheet(); toast("삭제했어요"); }
     catch (e) { toast(errText(e)); b.disabled = false; }
+  }
+  $("#myInbody").addEventListener("click", (ev) => inbodyAction(ev, "body"));
+  $("#mePage").addEventListener("click", (ev) => {
+    if (ev.target.closest("#meAddInbody")) { delete $("#i-bmi").dataset.touched; IB.from = "me"; return openInbody(null); }
+    if (ev.target.closest("#meEditBody")) return openBody();
+    if (ev.target.closest("#meEditProfile")) return $("#rename").click();
+    inbodyAction(ev, "me");
   });
+
+  // --- 내 페이지: 내 운동 기록과 인바디 변화를 그래프로 ---
+  const ALL_IB = IB_FIELDS.map(([k, l, u]) => [k, l, u]);
+  const KNOTE = "칼로리는 대략적인 추정치(±20~30%)예요.";
+
+  // 막대그래프 하나 (한 가지 값만, 범례 없이 제목이 이름 역할)
+  function barChart({ title, sub, items, unit, goal, fmt }) {
+    const W = 320, H = 150, L = 40, R = 8, T = 14, B = 22;
+    const f = fmt || ((v) => v.toLocaleString("ko-KR"));
+    const vmax = Math.max(goal || 0, ...items.map((i) => i.v), 0);
+    const step = niceStep(vmax / 4);
+    const top = Math.max(step, Math.ceil(vmax / step) * step);
+    const y = (v) => T + (1 - v / top) * (H - T - B);
+    const band = (W - L - R) / items.length, bw = Math.min(22, band * 0.62);
+    const last = items.length - 1;
+    const bars = items.map((it, i) => {
+      const x = L + band * i + (band - bw) / 2, y0 = y(0), yv = y(it.v), r = Math.min(4, (y0 - yv) / 2, bw / 2);
+      const shape = it.v > 0
+        ? `<path class="barfill" d="M${x.toFixed(1)},${y0.toFixed(1)}V${(yv + r).toFixed(1)}Q${x.toFixed(1)},${yv.toFixed(1)} ${(x + r).toFixed(1)},${yv.toFixed(1)}H${(x + bw - r).toFixed(1)}Q${(x + bw).toFixed(1)},${yv.toFixed(1)} ${(x + bw).toFixed(1)},${(yv + r).toFixed(1)}V${y0.toFixed(1)}Z"></path>`
+        : "";
+      const lbl = (i % 3 === last % 3) ? `<text class="axis" x="${(x + bw / 2).toFixed(1)}" y="${H - 6}" text-anchor="middle">${esc(it.label)}</text>` : "";
+      return `<g class="bar" data-tip="${esc(`${it.full || it.label} · ${f(it.v)}${unit}`)}"><rect class="hit" x="${(L + band * i).toFixed(1)}" y="${T}" width="${band.toFixed(1)}" height="${H - T - B}"></rect>${shape}${lbl}</g>`;
+    }).join("");
+    // 목표선 (값은 제목 옆에 적혀 있어서 그래프 안에는 선만 그림)
+    const goalLine = goal ? `<line class="goal" x1="${L}" x2="${W - R}" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}"></line>` : "";
+    const aria = `${title}: ` + items.map((i) => `${i.full || i.label} ${f(i.v)}${unit}`).join(", ");
+    return `<figure class="chartcard"><figcaption><b>${esc(title)}</b>${sub ? `<span>${sub}</span>` : ""}</figcaption>
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">
+        <line class="grid" x1="${L}" x2="${W - R}" y1="${y(top).toFixed(1)}" y2="${y(top).toFixed(1)}"></line>
+        <line class="grid" x1="${L}" x2="${W - R}" y1="${y(0).toFixed(1)}" y2="${y(0).toFixed(1)}"></line>
+        <text class="axis" x="${L - 5}" y="${(y(top) + 3).toFixed(1)}" text-anchor="end">${esc(f(top))}</text>
+        <text class="axis" x="${L - 5}" y="${(y(0) + 3).toFixed(1)}" text-anchor="end">0</text>
+        ${bars}${goalLine}
+      </svg><div class="tip" hidden></div></figure>`;
+  }
+  // 눈금 간격을 1·2·5·10 단위로 맞춤 (정수 아래로는 안 내려감)
+  function niceStep(v) {
+    if (v <= 1) return 1;
+    const p = Math.pow(10, Math.floor(Math.log10(v)));
+    const n = v / p;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+  }
+  function barHover(ev) {
+    const bar = ev.target.closest && ev.target.closest(".chartcard .bar");
+    document.querySelectorAll(".chartcard .tip:not([hidden])").forEach((t) => {
+      if (bar && t.parentElement === bar.closest(".chartcard")) return;
+      t.hidden = true;
+    });
+    document.querySelectorAll(".chartcard .bar.on").forEach((g) => { if (g !== bar) g.classList.remove("on"); });
+    if (!bar) return;
+    const fig = bar.closest(".chartcard"), tip = fig.querySelector(".tip");
+    const fr = fig.getBoundingClientRect(), hr = bar.querySelector(".hit").getBoundingClientRect();
+    const fill = bar.querySelector(".barfill");
+    const yTop = fill ? fill.getBoundingClientRect().top : hr.bottom;
+    tip.textContent = bar.dataset.tip; tip.hidden = false;
+    const half = tip.offsetWidth / 2;
+    tip.style.left = `${Math.min(Math.max(hr.left - fr.left + hr.width / 2, half + 4), fr.width - half - 4).toFixed(0)}px`;
+    tip.style.top = `${(yTop - fr.top - 6).toFixed(0)}px`;
+    bar.classList.add("on");
+  }
+  document.addEventListener("pointermove", barHover);
+  document.addEventListener("pointerdown", barHover);
+
+  function renderMePage() {
+    if (!S.me) return;
+    const c = cfg();
+    const meM = S.members.find((m) => m.id === S.me.id) || { id: S.me.id, name: S.me.name };
+    const list = S.entries.filter((e) => e.memberId === S.me.id);
+    const b = myBody();
+    const pub = b.pub || [];
+    const facts = Object.keys(BODY_LABELS).filter((k) => b[k]).map((k) => `<span>${esc(bodyText(k, b[k]))}<small>${pub.includes(k) ? "공개" : "나만"}</small></span>`).join("");
+
+    // 요약
+    const dates = new Set(list.map((e) => e.date));
+    const mins = list.reduce((s, e) => s + (Number(e.minutes) || 0), 0);
+    const km = Math.round(list.reduce((s, e) => s + (Number(e.km) || 0), 0) * 10) / 10;
+    const kcal = list.reduce((s, e) => s + (Number(e.kcal) || 0), 0);
+    const thisMon = mondayOf(new Date());
+    const weekDays = (mon) => daysIn(list, mon).size;
+    // 연속 달성: 이번 주가 이미 달성이면 이번 주부터, 아니면 지난 주부터 거꾸로 셈
+    let streak = 0, w = weekDays(thisMon) >= c.goal ? thisMon : addDays(thisMon, -7);
+    while (streak < 520 && weekDays(w) >= c.goal) { streak++; w = addDays(w, -7); }
+    const now = new Date();
+    const monthA = ymd(new Date(now.getFullYear(), now.getMonth(), 1)), monthB = ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    const monthDays = new Set(list.filter((e) => e.date >= monthA && e.date <= monthB).map((e) => e.date)).size;
+
+    // 최근 12주
+    const weeks = [];
+    for (let i = 11; i >= 0; i--) {
+      const mon = addDays(thisMon, -7 * i), sun = addDays(mon, 6);
+      const a = ymd(mon), z = ymd(sun);
+      const inW = list.filter((e) => e.date >= a && e.date <= z);
+      weeks.push({
+        label: `${mon.getMonth() + 1}.${mon.getDate()}`,
+        full: `${mon.getMonth() + 1}.${mon.getDate()}–${sun.getMonth() + 1}.${sun.getDate()}${i === 0 ? " (이번 주)" : ""}`,
+        days: new Set(inW.map((e) => e.date)).size,
+        mins: inW.reduce((s, e) => s + (Number(e.minutes) || 0), 0),
+        kcal: inW.reduce((s, e) => s + (Number(e.kcal) || 0), 0),
+      });
+    }
+    // 종목별 누적 시간
+    const byKind = {};
+    list.forEach((e) => (byKind[e.kind || "운동"] = (byKind[e.kind || "운동"] || 0) + (Number(e.minutes) || 0)));
+    const kinds = Object.entries(byKind).filter(([, v]) => v > 0).sort((x, y) => y[1] - x[1]).slice(0, 6);
+    const kmax = kinds.length ? kinds[0][1] : 1;
+
+    const ib = inbodyOf(S.me.id);
+    const tiles = [
+      ["이번 달 운동", monthDays, "일"],
+      ["연속 목표 달성", streak, "주"],
+      ["전체 운동일", dates.size, "일"],
+      ["총 운동 시간", fmtMinutes(mins), ""],
+    ].concat(km ? [["총 거리", km, "km"]] : []).concat(kcal ? [["총 소모 칼로리(약)", kcal.toLocaleString("ko-KR"), "kcal"]] : []);
+
+    $("#mePage").innerHTML = `
+      <div class="mehead">${avatar(meM)}
+        <div class="who"><b>${esc(meM.name || "나")}</b>${facts ? `<div class="facts">${facts}</div>` : `<span class="veil-note">‘내 몸 기록 수정’에서 키·몸무게 등을 넣을 수 있어요.</span>`}</div>
+        <div class="row-btns"><button type="button" class="btn" id="meEditProfile">프로필 수정</button><button type="button" class="btn" id="meEditBody">내 몸 기록 수정</button></div>
+      </div>
+      <section>
+        <h3>내 운동 요약</h3>
+        <div class="tiles">${tiles.map(([l, v, u]) => `<div class="tile"><span>${l}</span><b>${esc(String(v))}${u ? `<small>${u}</small>` : ""}</b></div>`).join("")}</div>
+        ${kcal ? `<p class="kcalnote">${KNOTE}</p>` : ""}
+      </section>
+      <section>
+        <h3>최근 12주</h3>
+        ${list.length ? `<div class="charts">
+          ${barChart({ title: "주별 운동한 날", sub: `목표 주 ${c.goal}일`, items: weeks.map((x) => ({ label: x.label, full: x.full, v: x.days })), unit: "일", goal: c.goal })}
+          ${barChart({ title: "주별 운동 시간", items: weeks.map((x) => ({ label: x.label, full: x.full, v: x.mins })), unit: "분" })}
+          ${weeks.some((x) => x.kcal) ? barChart({ title: "주별 소모 칼로리", sub: "추정치", items: weeks.map((x) => ({ label: x.label, full: x.full, v: x.kcal })), unit: "kcal" }) : ""}
+          ${kinds.length ? `<figure class="chartcard"><figcaption><b>종목별 운동 시간</b><span>전체 기간</span></figcaption><div class="hbars">${kinds.map(([k, v]) => `<div class="hbar"><span class="lbl">${esc(k)}</span><span class="track"><span class="fill" style="display:block;width:${((v / kmax) * 100).toFixed(1)}%"></span></span><span class="val">${esc(fmtMinutes(v))}</span></div>`).join("")}</div></figure>` : ""}
+        </div>${weeks.some((x) => x.kcal) ? `<p class="kcalnote">${KNOTE}</p>` : ""}` : `<p class="veil-note">아직 운동 기록이 없어요. ‘+ 기록하기’로 첫 기록을 남겨보세요.</p>`}
+      </section>
+      <section>
+        <h3>인바디 변화 <button type="button" class="btn" id="meAddInbody">+ 인바디 추가</button></h3>
+        ${ib.length ? trendHtml(ib, ALL_IB) + `<div class="iblist" style="margin-top:10px">${[...ib].reverse().map((r) => inbodyItem(r, true)).join("")}</div>`
+          : `<p class="veil-note">아직 인바디 기록이 없어요. 측정할 때마다 추가하면 항목별 변화 그래프가 그려져요.</p>`}
+      </section>`;
+  }
 
   // --- 멤버 상세 (다른 사람이 공개한 정보만 보임) ---
   function openMember(id) {
@@ -951,6 +1118,7 @@
   }
   $("#viewWeek").addEventListener("click", () => setView("week"));
   $("#viewMonth").addEventListener("click", () => setView("month"));
+  $("#viewMe").addEventListener("click", () => setView("me"));
   $("#tabAll").addEventListener("click", () => { S.mineOnly = false; $("#tabAll").setAttribute("aria-pressed", "true"); $("#tabMine").setAttribute("aria-pressed", "false"); render(); });
   $("#tabMine").addEventListener("click", () => { S.mineOnly = true; $("#tabMine").setAttribute("aria-pressed", "true"); $("#tabAll").setAttribute("aria-pressed", "false"); render(); });
   $("#fab").addEventListener("click", () => openEntry(null));

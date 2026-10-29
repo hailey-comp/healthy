@@ -12,7 +12,7 @@ const SHEETS = {
   members: ['id', 'name', 'key', 'role', 'joinedAt', 'avatar', 'height', 'weight', 'birthYear', 'sex', 'bodyPub'],
   entries: ['id', 'memberId', 'date', 'kind', 'minutes', 'km', 'memo', 'photoId', 'hidden', 'createdAt', 'updatedAt', 'intensity'],
   settings: ['key', 'value'],
-  inbody: ['id', 'memberId', 'date', 'weight', 'muscle', 'fatMass', 'fatPct', 'bmi', 'bmr', 'score', 'photoId', 'public', 'createdAt', 'updatedAt'],
+  inbody: ['id', 'memberId', 'date', 'weight', 'muscle', 'fatMass', 'fatPct', 'bmi', 'bmr', 'score', 'photoId', 'public', 'createdAt', 'updatedAt', 'pubFields'],
 };
 // 몸 정보(members 시트)와 인바디 측정값의 허용 범위
 const BODY_FIELDS = {
@@ -247,7 +247,9 @@ const ACTIONS = {
           memberId: me.id,
           date,
           photoId,
-          public: src.public ? 'Y' : '',
+          // 항목별 공개 (예전 방식: public = 기록 전체 공개)
+          public: '',
+          pubFields: inbodyPub_(src).join(','),
           createdAt: existing ? existing.createdAt : now,
           updatedAt: now,
         }, vals);
@@ -337,12 +339,21 @@ function stateFor_(me) {
 
   // 인바디: 내 기록은 전부, 다른 사람 기록은 공개한 것만
   const inbody = inbodyRows
-    .filter((r) => r.memberId === me.id || r.public === 'Y')
     .map((r) => {
-      const o = { id: r.id, memberId: r.memberId, date: r.date, photo: r.photoId || '', public: r.public === 'Y' };
-      Object.keys(INBODY_FIELDS).forEach((k) => (o[k] = r[k] === '' ? null : Number(r[k])));
-      return o;
+      const mine = r.memberId === me.id;
+      const pub = r.pubFields ? r.pubFields.split(',') : r.public === 'Y' ? INBODY_PUB_KEYS : [];
+      const o = { id: r.id, memberId: r.memberId, date: r.date };
+      let shown = 0;
+      Object.keys(INBODY_FIELDS).forEach((k) => {
+        if (r[k] === '' || (!mine && pub.indexOf(k) < 0)) return;
+        o[k] = Number(r[k]);
+        shown++;
+      });
+      if (r.photoId && (mine || pub.indexOf('photo') >= 0)) { o.photo = r.photoId; shown++; }
+      if (mine) o.pub = pub;
+      return shown ? o : null;
     })
+    .filter(Boolean)
     .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   const entries = table_('entries').rows
@@ -494,6 +505,13 @@ function cleanEntry_(src) {
     hidden: !!src.hidden,
     intensity: INTENSITY[src.intensity] ? src.intensity : 'normal',
   };
+}
+
+const INBODY_PUB_KEYS = Object.keys(INBODY_FIELDS).concat(['photo']);
+// 공개할 항목 목록. pub 배열이 없으면 예전 방식(public: true면 전부 공개)
+function inbodyPub_(src) {
+  if (Array.isArray(src.pub)) return src.pub.filter((k) => INBODY_PUB_KEYS.indexOf(k) >= 0);
+  return src.public ? INBODY_PUB_KEYS.slice() : [];
 }
 
 // 빈칸은 null, 범위를 벗어나면 오류
