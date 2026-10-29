@@ -226,9 +226,10 @@
           return `<span class="dot${r.days.has(d) ? " on" : ""}${d === today ? " today" : ""}" title="${d}">${w}</span>`;
         }).join("");
         const isMe = S.me && r.m.id === S.me.id;
-        const owed = r.missed
+        // 벌금이 생긴 멤버에게만 표시
+        const owed = r.missed && c.fine > 0
           ? `<div class="owed"><span>지금까지 미달 <span class="num">${r.missed}</span>주</span><span>낼 벌금 <b>${esc(won(r.missed * c.fine))}</b></span></div>`
-          : `<div class="owed"><span>아직 기록 없음</span></div>`;
+          : "";
         return `<div class="row">
           <div class="rank">${i + 1}</div>
           ${avatar(r.m)}
