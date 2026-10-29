@@ -9,9 +9,25 @@
  */
 
 const SHEETS = {
-  members: ['id', 'name', 'key', 'role', 'joinedAt', 'avatar'],
-  entries: ['id', 'memberId', 'date', 'kind', 'minutes', 'km', 'memo', 'photoId', 'hidden', 'createdAt', 'updatedAt'],
+  members: ['id', 'name', 'key', 'role', 'joinedAt', 'avatar', 'height', 'weight', 'birthYear', 'sex', 'bodyPub'],
+  entries: ['id', 'memberId', 'date', 'kind', 'minutes', 'km', 'memo', 'photoId', 'hidden', 'createdAt', 'updatedAt', 'intensity'],
   settings: ['key', 'value'],
+  inbody: ['id', 'memberId', 'date', 'weight', 'muscle', 'fatMass', 'fatPct', 'bmi', 'bmr', 'score', 'photoId', 'public', 'createdAt', 'updatedAt'],
+};
+// 몸 정보(members 시트)와 인바디 측정값의 허용 범위
+const BODY_FIELDS = {
+  height: { label: '키', min: 100, max: 250 },
+  weight: { label: '몸무게', min: 20, max: 300 },
+  birthYear: { label: '출생 연도', min: 1920, max: new Date().getFullYear() - 5 },
+};
+const INBODY_FIELDS = {
+  weight: { label: '체중', min: 20, max: 300 },
+  muscle: { label: '골격근량', min: 5, max: 100 },
+  fatMass: { label: '체지방량', min: 0, max: 150 },
+  fatPct: { label: '체지방률', min: 1, max: 70 },
+  bmi: { label: 'BMI', min: 10, max: 60 },
+  bmr: { label: '기초대사량', min: 500, max: 4000 },
+  score: { label: '인바디 점수', min: 0, max: 120 },
 };
 const DEFAULT_SETTINGS = { title: '주 3회 운동 내기', goal: '3', fine: '10000', start: '', note: '', rules: '[]' };
 const MAX_RULES = 20;
@@ -95,6 +111,7 @@ const ACTIONS = {
           hidden: clean.hidden ? 'Y' : '',
           createdAt: existing ? existing.createdAt : now,
           updatedAt: now,
+          intensity: clean.intensity,
         };
         writeRow_(t.sh, existing ? existing._row : null, SHEETS.entries.map((c) => row[c]));
       });
@@ -186,6 +203,76 @@ const ACTIONS = {
     return stateFor_(me);
   },
 
+  // --- 몸 정보와 인바디 (항목·기록마다 공개 여부를 정함, 기본은 나만 보기) ---
+  saveBody: (me, req) => {
+    const src = req.body || {};
+    const vals = {};
+    Object.keys(BODY_FIELDS).forEach((k) => (vals[k] = cleanNum_(src[k], BODY_FIELDS[k], k === 'birthYear' ? 0 : 1)));
+    vals.sex = src.sex === 'F' || src.sex === 'M' ? src.sex : '';
+    const pub = (Array.isArray(src.pub) ? src.pub : []).filter((k) => k in vals);
+    withLock_(() => {
+      const t = table_('members');
+      const r = t.rows.find((m) => m.id === me.id);
+      const row = SHEETS.members.map((c) => r[c]);
+      Object.keys(vals).forEach((k) => (row[SHEETS.members.indexOf(k)] = vals[k] === null ? '' : String(vals[k])));
+      row[SHEETS.members.indexOf('bodyPub')] = pub.join(',');
+      writeRow_(t.sh, r._row, row);
+    });
+    return stateFor_(me);
+  },
+
+  saveInbody: (me, req) => {
+    const src = req.record || {};
+    const date = String(src.date || '');
+    if (!isDate_(date) || date > addDaysStr_(today_(), 1)) throw fail_('invalid', '측정일을 확인해주세요.');
+    const vals = {};
+    Object.keys(INBODY_FIELDS).forEach((k) => (vals[k] = cleanNum_(src[k], INBODY_FIELDS[k], k === 'bmr' || k === 'score' ? 0 : 1)));
+    if (Object.keys(vals).every((k) => vals[k] === null)) throw fail_('invalid', '측정값을 하나 이상 입력해주세요.');
+    const newPhoto = src.photo && src.photo.data ? savePhoto_(me, src.photo) : '';
+    let oldPhoto = '';
+    try {
+      withLock_(() => {
+        const t = table_('inbody');
+        const now = String(Date.now());
+        const existing = src.id ? t.rows.find((r) => r.id === src.id) : null;
+        if (src.id && !existing) throw fail_('not_found', '인바디 기록을 찾을 수 없어요.');
+        if (existing && existing.memberId !== me.id) throw fail_('forbidden', '본인 기록만 수정할 수 있어요.');
+        let photoId = existing ? existing.photoId : '';
+        if (newPhoto || src.removePhoto) {
+          oldPhoto = photoId;
+          photoId = newPhoto;
+        }
+        const row = Object.assign({
+          id: existing ? existing.id : 'b' + uid_(12),
+          memberId: me.id,
+          date,
+          photoId,
+          public: src.public ? 'Y' : '',
+          createdAt: existing ? existing.createdAt : now,
+          updatedAt: now,
+        }, vals);
+        writeRow_(t.sh, existing ? existing._row : null, SHEETS.inbody.map((c) => (row[c] === null ? '' : row[c])));
+      });
+    } catch (err) {
+      if (newPhoto) trashPhoto_(newPhoto);
+      throw err;
+    }
+    if (oldPhoto) trashPhoto_(oldPhoto);
+    return stateFor_(me);
+  },
+
+  deleteInbody: (me, req) => {
+    let photo = '';
+    withLock_(() => {
+      const t = table_('inbody');
+      const r = ownEntry_(t, me, req.id, false);
+      photo = r.photoId;
+      t.sh.deleteRow(r._row);
+    });
+    if (photo) trashPhoto_(photo);
+    return stateFor_(me);
+  },
+
   // --- 관리자: 참가자 관리 ---
   members: (me) => {
     requireAdmin_(me);
@@ -227,9 +314,37 @@ const ACTIONS = {
 // 상태 조립: 숨긴 기록의 메모와 사진은 작성자에게만 내려보냄
 // ---------------------------------------------------------------------------
 function stateFor_(me) {
-  const members = table_('members').rows.map((m) => ({ id: m.id, name: m.name, joinedAt: Number(m.joinedAt) || 0, avatar: m.avatar || '' }));
+  const memberRows = table_('members').rows;
+  const members = memberRows.map((m) => ({ id: m.id, name: m.name, joinedAt: Number(m.joinedAt) || 0, avatar: m.avatar || '', admin: m.role === 'admin' }));
   const ids = {};
   members.forEach((m) => (ids[m.id] = true));
+  const inbodyRows = table_('inbody').rows.filter((r) => ids[r.memberId] && isDate_(r.date));
+  const weightAt = weightLookup_(memberRows, inbodyRows);
+
+  // 몸 정보: 내 것은 전부, 다른 사람 것은 공개한 항목만
+  const bodies = {};
+  memberRows.forEach((m) => {
+    const pub = String(m.bodyPub || '').split(',').filter(Boolean);
+    const mine = m.id === me.id;
+    const b = {};
+    ['height', 'weight', 'birthYear', 'sex'].forEach((k) => {
+      if (!m[k] || (!mine && pub.indexOf(k) < 0)) return;
+      b[k] = k === 'sex' ? m[k] : Number(m[k]);
+    });
+    if (mine) b.pub = pub;
+    bodies[m.id] = b;
+  });
+
+  // 인바디: 내 기록은 전부, 다른 사람 기록은 공개한 것만
+  const inbody = inbodyRows
+    .filter((r) => r.memberId === me.id || r.public === 'Y')
+    .map((r) => {
+      const o = { id: r.id, memberId: r.memberId, date: r.date, photo: r.photoId || '', public: r.public === 'Y' };
+      Object.keys(INBODY_FIELDS).forEach((k) => (o[k] = r[k] === '' ? null : Number(r[k])));
+      return o;
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
   const entries = table_('entries').rows
     .filter((r) => ids[r.memberId] && isDate_(r.date))
     .map((r) => {
@@ -243,7 +358,10 @@ function stateFor_(me) {
         km: Number(r.km) || 0,
         hidden,
         createdAt: Number(r.createdAt) || 0,
+        intensity: INTENSITY[r.intensity] ? r.intensity : 'normal',
       };
+      // 칼로리는 모두에게 보여줌 (몸무게 자체는 보내지 않음)
+      e.kcal = kcalFor_(e, weightAt(r.memberId, r.date));
       if (!hidden || r.memberId === me.id) {
         e.memo = r.memo;
         e.photo = r.photoId || '';
@@ -254,7 +372,85 @@ function stateFor_(me) {
     me: { id: me.id, name: me.name, role: me.role },
     members,
     entries,
+    bodies,
+    inbody,
     settings: settingsOut_(),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 칼로리 추정: 소모 kcal ≈ MET × 체중(kg) × 시간(h)
+// 러닝·걷기·자전거는 거리와 시간으로 속도를 구해 MET을 고름 (Compendium of Physical Activities 기준)
+// ---------------------------------------------------------------------------
+const SPEED_MET = {
+  run: [[6.4, 6.0], [8.0, 8.3], [9.7, 9.8], [10.8, 10.5], [12.1, 11.8], [13.8, 12.8], [16.1, 16.0]],
+  walk: [[3.2, 2.8], [4.0, 3.0], [4.8, 3.5], [5.6, 4.3], [6.4, 5.0], [7.2, 7.0]],
+  bike: [[12, 4.0], [17.5, 6.8], [20.5, 8.0], [23.5, 10.0], [27.5, 12.0], [32, 15.8]],
+};
+const KIND_MET = [
+  [/러닝|런닝|달리기|조깅|마라톤|트레드밀|러닝머신/, 9.0, 'run'],
+  [/걷기|산책|워킹/, 3.5, 'walk'],
+  [/자전거|사이클|라이딩|스피닝/, 7.5, 'bike'],
+  [/줄넘기/, 11.0],
+  [/계단|스텝밀|천국의 ?계단/, 8.8],
+  [/크로스핏/, 8.0],
+  [/클라이밍|암벽|볼더링/, 8.0],
+  [/복싱|킥복싱|주짓수|태권도|유도|무술/, 7.8],
+  [/수영/, 7.0],
+  [/테니스|스쿼시/, 7.3],
+  [/축구|풋살|구기/, 7.0],
+  [/농구/, 6.5],
+  [/등산|하이킹|트레킹/, 6.0],
+  [/댄스|줌바|에어로빅/, 6.0],
+  [/스키|스노보드/, 6.0],
+  [/배드민턴/, 5.5],
+  [/헬스|웨이트|근력|PT/, 5.0],
+  [/골프/, 4.8],
+  [/배구|탁구/, 4.0],
+  [/필라테스/, 3.0],
+  [/요가/, 2.5],
+  [/스트레칭/, 2.3],
+];
+const DEFAULT_MET = 5.0;
+const INTENSITY = { light: 0.8, normal: 1, hard: 1.25 };
+
+function metFor_(e) {
+  const rule = KIND_MET.find((r) => r[0].test(e.kind));
+  if (rule && rule[2] && e.km > 0 && e.minutes > 0) return interp_(SPEED_MET[rule[2]], e.km / (e.minutes / 60));
+  return (rule ? rule[1] : DEFAULT_MET) * (INTENSITY[e.intensity] || 1);
+}
+
+function interp_(table, x) {
+  if (x <= table[0][0]) return table[0][1];
+  for (let i = 1; i < table.length; i++) {
+    if (x <= table[i][0]) {
+      const a = table[i - 1], b = table[i];
+      return a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]);
+    }
+  }
+  return table[table.length - 1][1];
+}
+
+function kcalFor_(e, kg) {
+  if (!kg || !e.minutes) return null;
+  return Math.round((metFor_(e) * kg * e.minutes) / 60);
+}
+
+// 그날 기준 가장 최근 인바디 체중 → 프로필 몸무게 → 가장 오래된 인바디 체중 순으로 씀
+function weightLookup_(memberRows, inbodyRows) {
+  const byMember = {};
+  inbodyRows.forEach((r) => {
+    const w = Number(r.weight);
+    if (w > 0) (byMember[r.memberId] = byMember[r.memberId] || []).push({ date: r.date, w });
+  });
+  Object.keys(byMember).forEach((k) => byMember[k].sort((a, b) => (a.date < b.date ? -1 : 1)));
+  const profile = {};
+  memberRows.forEach((m) => (profile[m.id] = Number(m.weight) || 0));
+  return (memberId, date) => {
+    const list = byMember[memberId] || [];
+    let found = 0;
+    list.forEach((x) => { if (x.date <= date) found = x.w; });
+    return found || profile[memberId] || (list[0] ? list[0].w : 0);
   };
 }
 
@@ -296,7 +492,17 @@ function cleanEntry_(src) {
     km: Math.max(0, Math.min(1000, Math.round((Number(src.km) || 0) * 10) / 10)),
     memo: String(src.memo || '').trim().slice(0, 1000),
     hidden: !!src.hidden,
+    intensity: INTENSITY[src.intensity] ? src.intensity : 'normal',
   };
+}
+
+// 빈칸은 null, 범위를 벗어나면 오류
+function cleanNum_(v, spec, digits) {
+  if (v === '' || v === null || v === undefined) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < spec.min || n > spec.max) throw fail_('invalid', spec.label + ' 값을 확인해주세요. (' + spec.min + '~' + spec.max + ')');
+  const f = Math.pow(10, digits);
+  return Math.round(n * f) / f;
 }
 
 function cleanName_(name) {
@@ -343,8 +549,15 @@ function trashPhoto_(id) {
 // 시트 헬퍼
 // ---------------------------------------------------------------------------
 function sheet_(name) {
-  const sh = SpreadsheetApp.getActive().getSheetByName(name);
-  if (!sh) throw fail_('not_setup', '시트가 없어요. Apps Script에서 setup을 먼저 실행해주세요.');
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(name);
+  if (!sh) {
+    if (name !== 'inbody') throw fail_('not_setup', '시트가 없어요. Apps Script에서 setup을 먼저 실행해주세요.');
+    // 기능 추가로 새로 생긴 시트는 처음 쓸 때 만듦
+    sh = ss.insertSheet(name);
+    sh.getRange(1, 1, 1, SHEETS[name].length).setValues([SHEETS[name]]).setFontWeight('bold');
+    sh.setFrozenRows(1);
+  }
   return sh;
 }
 
@@ -366,6 +579,11 @@ function table_(name) {
 
 // 모든 칸을 일반 텍스트로 써서 날짜·숫자 자동 변환을 막음
 function writeRow_(sh, row, values) {
+  // 열이 추가된 예전 시트는 제목 줄을 최신으로 맞춤
+  const cols = SHEETS[sh.getName()];
+  if (cols && sh.getRange(1, cols.length).getDisplayValue() !== cols[cols.length - 1]) {
+    sh.getRange(1, 1, 1, cols.length).setValues([cols]).setFontWeight('bold');
+  }
   if (!row) {
     row = sh.getLastRow() + 1;
     if (row > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), 50);

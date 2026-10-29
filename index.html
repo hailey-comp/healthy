@@ -72,6 +72,7 @@
   <footer class="foot">
     <span id="meLine"></span>
     <button type="button" class="linkbtn" id="rename">프로필 수정</button>
+    <button type="button" class="linkbtn" id="openBody">내 몸 기록</button>
     <button type="button" class="linkbtn" id="manage" hidden>참가자 관리</button>
     <button type="button" class="linkbtn" id="signout">이 기기에서 나가기</button>
   </footer>
@@ -105,6 +106,15 @@
         <input type="file" id="f-photo" accept="image/*" hidden>
         <small class="veil-note">인증샷이나 운동 앱 캡처를 올려보세요. 큰 사진은 자동으로 줄여서 올려요.</small>
       </div>
+    </div>
+    <div class="field">
+      <span>강도</span>
+      <div class="seg" id="f-int" role="group" aria-label="운동 강도">
+        <button type="button" data-v="light" aria-pressed="false">가볍게</button>
+        <button type="button" data-v="normal" aria-pressed="true">보통</button>
+        <button type="button" data-v="hard" aria-pressed="false">힘들게</button>
+      </div>
+      <small class="veil-note">칼로리 추정에 써요. 러닝·걷기·자전거는 거리를 적으면 속도로 계산해요.</small>
     </div>
     <label class="check"><input type="checkbox" id="f-hidden"><span>친구들에게 사진·메모 숨기기<small>운동한 날과 종목은 멤버 현황에 그대로 반영돼요.</small></span></label>
     <p class="err" id="entryErr" hidden></p>
@@ -170,6 +180,102 @@
     </form>
     <p class="err" id="manageErr" hidden></p>
     <div class="sheet-foot"><button type="button" class="btn" data-close>닫기</button></div>
+  </div>
+</div>
+
+<!-- 내 몸 기록: 기본 정보 + 인바디 -->
+<div class="scrim" id="bodySheet" hidden>
+  <div class="sheet">
+    <h3>내 몸 기록</h3>
+    <p class="veil-note">기본은 나만 보기예요. ‘공개’를 켠 항목만 친구들에게 보여요.</p>
+    <form class="bodyform" id="bodyForm" novalidate>
+      <div class="bfrow">
+        <label class="field"><span>키 (cm)</span><input type="number" id="b-height" min="100" max="250" step="0.1" inputmode="decimal"></label>
+        <label class="pubtoggle"><input type="checkbox" data-pub="height">공개</label>
+      </div>
+      <div class="bfrow">
+        <label class="field"><span>몸무게 (kg)</span><input type="number" id="b-weight" min="20" max="300" step="0.1" inputmode="decimal"></label>
+        <label class="pubtoggle"><input type="checkbox" data-pub="weight">공개</label>
+      </div>
+      <div class="bfrow">
+        <label class="field"><span>출생 연도</span><input type="number" id="b-birthYear" min="1920" max="2025" inputmode="numeric" placeholder="예: 1995"></label>
+        <label class="pubtoggle"><input type="checkbox" data-pub="birthYear">공개</label>
+      </div>
+      <div class="bfrow">
+        <label class="field"><span>성별</span>
+          <select id="b-sex"><option value="">선택 안 함</option><option value="F">여성</option><option value="M">남성</option></select>
+        </label>
+        <label class="pubtoggle"><input type="checkbox" data-pub="sex">공개</label>
+      </div>
+      <p class="bmr" id="bmrLine"></p>
+      <p class="err" id="bodyErr" hidden></p>
+      <button type="submit" class="btn primary">기본 정보 저장</button>
+    </form>
+    <div class="ibhead"><h4>인바디</h4><button type="button" class="btn" id="addInbody">+ 인바디 추가</button></div>
+    <div id="myTrend"></div>
+    <div class="iblist" id="myInbody"></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-close>닫기</button></div>
+  </div>
+</div>
+
+<!-- 인바디 기록 작성/수정 -->
+<div class="scrim" id="inbodySheet" hidden>
+  <form class="sheet" id="inbodyForm" novalidate>
+    <h3 id="ibTitle">인바디 기록</h3>
+    <label class="field"><span>측정일</span><input type="date" id="i-date"></label>
+    <div class="pair">
+      <label class="field"><span>체중 (kg)</span><input type="number" id="i-weight" step="0.1" inputmode="decimal"></label>
+      <label class="field"><span>골격근량 (kg)</span><input type="number" id="i-muscle" step="0.1" inputmode="decimal"></label>
+      <label class="field"><span>체지방량 (kg)</span><input type="number" id="i-fatMass" step="0.1" inputmode="decimal"></label>
+      <label class="field"><span>체지방률 (%)</span><input type="number" id="i-fatPct" step="0.1" inputmode="decimal"></label>
+      <label class="field"><span>BMI</span><input type="number" id="i-bmi" step="0.1" inputmode="decimal"></label>
+      <label class="field"><span>기초대사량 (kcal)</span><input type="number" id="i-bmr" inputmode="numeric"></label>
+      <label class="field"><span>인바디 점수</span><input type="number" id="i-score" inputmode="numeric"></label>
+    </div>
+    <div class="field">
+      <span>결과지 사진 (선택)</span>
+      <div class="drop">
+        <img id="i-preview" alt="결과지 사진 미리보기" hidden>
+        <div class="row-btns">
+          <label class="btn" for="i-photo" id="i-pick">사진 선택</label>
+          <button type="button" class="btn" id="i-removePhoto" hidden>사진 빼기</button>
+        </div>
+        <input type="file" id="i-photo" accept="image/*" hidden>
+      </div>
+    </div>
+    <fieldset class="vis">
+      <legend>공개 범위</legend>
+      <label><input type="radio" name="i-vis" value="private" checked>나만 보기</label>
+      <label><input type="radio" name="i-vis" value="public">친구들에게 공개</label>
+    </fieldset>
+    <p class="err" id="ibErr" hidden></p>
+    <div class="sheet-foot">
+      <button type="button" class="btn" id="ibCancel">취소</button>
+      <button type="submit" class="btn primary" id="ibSave">저장</button>
+    </div>
+  </form>
+</div>
+
+<!-- 멤버 상세 -->
+<div class="scrim" id="memberSheet" hidden>
+  <div class="sheet">
+    <div class="mhead" id="mHead"></div>
+    <div class="mbody" id="mBody"></div>
+    <div class="sheet-foot"><button type="button" class="btn" data-close>닫기</button></div>
+  </div>
+</div>
+
+<!-- 저장 전 공개 범위 확인 -->
+<div class="scrim confirm" id="confirmSheet" hidden>
+  <div class="sheet" role="alertdialog" aria-labelledby="cfTitle">
+    <h3 id="cfTitle">공개 범위 확인</h3>
+    <div class="cfgroup pub"><b>친구들에게 공개</b><ul id="cfPub"></ul></div>
+    <div class="cfgroup"><b>나만 보기</b><ul id="cfPriv"></ul></div>
+    <ul class="cfnotes" id="cfNotes"></ul>
+    <div class="sheet-foot">
+      <button type="button" class="btn" id="cfBack">돌아가기</button>
+      <button type="button" class="btn primary" id="cfOk">확인하고 저장</button>
+    </div>
   </div>
 </div>
 

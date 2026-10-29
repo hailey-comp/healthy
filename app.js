@@ -18,7 +18,8 @@
     me: null, members: [], entries: [], settings: null, loaded: false,
     view: (() => { try { return localStorage.getItem("healthy.view") === "month" ? "month" : "week"; } catch (_) { return "week"; } })(),
     weekOffset: 0, monthOffset: 0, mineOnly: false,
-    editingId: null, photoFile: null, photoRemoved: false,
+    editingId: null, photoFile: null, photoRemoved: false, intensity: "normal",
+    bodies: {}, inbody: [],
   };
 
   // ---------- key: 링크의 #k=… 를 이 기기에 저장하고 주소창에서는 지움 ----------
@@ -71,6 +72,8 @@
     if (data.members) S.members = data.members;
     if (data.entries) S.entries = data.entries;
     if (data.settings) S.settings = data.settings;
+    if (data.bodies) S.bodies = data.bodies;
+    if (data.inbody) S.inbody = data.inbody;
     S.loaded = true;
     render();
   }
@@ -136,6 +139,8 @@
   const selMonday = () => addDays(mondayOf(new Date()), S.weekOffset * 7);
   const selMonth = () => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth() + S.monthOffset, 1); };
   const hueOf = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+  const kcalIn = (list, a, b) => list.reduce((t, e) => t + (e.date >= a && e.date <= b ? Number(e.kcal) || 0 : 0), 0);
+  const nameBtn = (m) => `<button type="button" class="namebtn" data-member="${esc(m.id)}">${esc(m.name || "친구")}</button>`;
   const fmtMinutes = (n) => (n >= 60 ? `${Math.floor(n / 60)}시간${n % 60 ? ` ${n % 60}분` : ""}` : `${n}분`);
 
   // 프로필 사진이 있으면 사진, 없거나 못 불러오면 이름 첫 글자
@@ -212,7 +217,7 @@
     } else if (!isWeek) {
       board.innerHTML = monthBoard(ms, m1, mEnd, today);
     } else {
-      const rows = ms.map((m) => ({ m, days: daysIn(m.list, mon), mins: minutesIn(m.list, mon), missed: missedWeeks(m) }))
+      const rows = ms.map((m) => ({ m, days: daysIn(m.list, mon), mins: minutesIn(m.list, mon), kcal: kcalIn(m.list, ymd(mon), ymd(sun)), missed: missedWeeks(m) }))
         .sort((a, b) => b.days.size - a.days.size || b.mins - a.mins || String(a.m.name).localeCompare(String(b.m.name), "ko"));
       board.innerHTML = rows.map((r, i) => {
         const done = r.days.size;
@@ -233,8 +238,8 @@
         return `<div class="row">
           <div class="rank">${i + 1}</div>
           ${avatar(r.m)}
-          <div class="who"><div class="name">${esc(r.m.name || "친구")}${isMe ? `<span class="me">나</span>` : ""}</div><div class="dots">${dots}</div></div>
-          <div class="score"><div class="count">${done}<small>/${c.goal}일</small></div>${chip}</div>
+          <div class="who"><div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div><div class="dots">${dots}</div></div>
+          <div class="score"><div class="count">${done}<small>/${c.goal}일</small></div>${chip}${r.kcal ? `<span class="kcalsum">약 ${r.kcal.toLocaleString("ko-KR")}kcal</span>` : ""}</div>
           ${owed}
         </div>`;
       }).join("");
@@ -258,7 +263,7 @@
         const d = parseYmd(e.date);
         let head = "";
         if (e.date !== lastDate) { lastDate = e.date; head = `<div class="daylabel">${d.getMonth() + 1}월 ${d.getDate()}일 ${WD[(d.getDay() + 6) % 7]}요일</div>`; }
-        const stats = [Number(e.minutes) > 0 ? `${Number(e.minutes)}분` : "", Number(e.km) > 0 ? `${Number(e.km)}km` : ""].filter(Boolean).join(" · ");
+        const stats = [Number(e.minutes) > 0 ? `${Number(e.minutes)}분` : "", Number(e.km) > 0 ? `${Number(e.km)}km` : "", e.kcal > 0 ? `약 ${Number(e.kcal).toLocaleString("ko-KR")}kcal` : ""].filter(Boolean).join(" · ");
         const veiled = e.hidden && !mine;
         const photo = !veiled && validFileId(e.photo)
           ? `<button type="button" class="photo" data-act="zoom" data-id="${esc(e.photo)}"><img src="${esc(photoSrc(e.photo, 1200))}" data-alt="${esc(photoAlt(e.photo, 1200))}" alt="${esc(m.name)}의 운동 사진" loading="lazy" referrerpolicy="no-referrer"></button>` : "";
@@ -305,6 +310,7 @@
         m, days: days.size, n: list.length,
         mins: list.reduce((t, e) => t + (Number(e.minutes) || 0), 0),
         km: Math.round(list.reduce((t, e) => t + (Number(e.km) || 0), 0) * 10) / 10,
+        kcal: kcalIn(list, a, b),
       };
     }).sort((x, y) => y.days - x.days || y.mins - x.mins || String(x.m.name).localeCompare(String(y.m.name), "ko"));
 
@@ -322,12 +328,12 @@
     const list = rows.map((r, i) => {
       const isMe = S.me && r.m.id === S.me.id;
       const stats = r.n
-        ? `총 <span class="num">${esc(fmtMinutes(r.mins))}</span>${r.km ? ` · <span class="num">${r.km}</span>km` : ""} · 기록 <span class="num">${r.n}</span>개`
+        ? `총 <span class="num">${esc(fmtMinutes(r.mins))}</span>${r.km ? ` · <span class="num">${r.km}</span>km` : ""}${r.kcal ? ` · 약 <span class="num">${r.kcal.toLocaleString("ko-KR")}</span>kcal` : ""} · 기록 <span class="num">${r.n}</span>개`
         : "아직 기록 없음";
       return `<div class="row">
         <div class="rank">${i + 1}</div>
         ${avatar(r.m)}
-        <div class="who"><div class="name">${esc(r.m.name || "친구")}${isMe ? `<span class="me">나</span>` : ""}</div><div class="mstats">${stats}</div></div>
+        <div class="who"><div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div><div class="mstats">${stats}</div></div>
         <div class="score"><div class="count">${r.days}<small>일</small></div></div>
       </div>`;
     }).join("");
@@ -344,10 +350,17 @@
   const anySheetOpen = () => [...document.querySelectorAll(".scrim")].some((s) => !s.hidden);
   function openSheet(id) { document.querySelectorAll(".scrim").forEach((s) => (s.hidden = s.id !== id)); }
   function closeSheets() { document.querySelectorAll(".scrim").forEach((s) => (s.hidden = true)); }
-  document.querySelectorAll(".scrim").forEach((s) => {
+  document.querySelectorAll(".scrim:not(.confirm)").forEach((s) => {
     s.addEventListener("click", (ev) => { if (ev.target === s || ev.target.closest("[data-close]")) closeSheets(); });
   });
   document.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { closeSheets(); $("#lightbox").hidden = true; } });
+
+  // intensity
+  function setIntensity(v) {
+    S.intensity = ["light", "normal", "hard"].includes(v) ? v : "normal";
+    $("#f-int").querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === S.intensity)));
+  }
+  $("#f-int").addEventListener("click", (ev) => { const b = ev.target.closest("button[data-v]"); if (b) setIntensity(b.dataset.v); });
 
   // kinds
   $("#kindChips").innerHTML = KINDS.map((k) => `<button type="button" data-kind="${esc(k)}" aria-pressed="false">${esc(k)}</button>`).join("");
@@ -411,6 +424,7 @@
     $("#f-km").value = e?.km || "";
     $("#f-memo").value = e?.memo || "";
     $("#f-hidden").checked = !!e?.hidden;
+    setIntensity(e?.intensity || "normal");
     $("#f-photo").value = "";
     setPreview(e && validFileId(e.photo) ? photoSrc(e.photo, 800) : null);
     $("#entryErr").hidden = true;
@@ -436,6 +450,7 @@
         km: Math.round((Number($("#f-km").value) || 0) * 10) / 10,
         memo: $("#f-memo").value.trim().slice(0, 1000),
         hidden: $("#f-hidden").checked,
+        intensity: S.intensity,
         removePhoto: S.photoRemoved,
       };
       if (S.photoFile) {
@@ -623,6 +638,299 @@
     } catch (e) { $("#manageErr").textContent = errText(e); $("#manageErr").hidden = false; b.disabled = false; }
   });
 
+  // ---------- 내 몸 기록 · 인바디 · 멤버 상세 ----------
+  const BODY_LABELS = { height: "키", weight: "몸무게", birthYear: "출생 연도", sex: "성별" };
+  const SEX_LABEL = { F: "여성", M: "남성" };
+  const IB_FIELDS = [
+    ["weight", "체중", "kg"], ["muscle", "골격근량", "kg"], ["fatMass", "체지방량", "kg"], ["fatPct", "체지방률", "%"],
+    ["bmi", "BMI", ""], ["bmr", "기초대사량", "kcal"], ["score", "인바디 점수", "점"],
+  ];
+  const TREND = [["weight", "체중", "kg"], ["muscle", "골격근량", "kg"], ["fatPct", "체지방률", "%"]];
+  const fmtDate = (s) => { const d = parseYmd(s); return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`; };
+  const bodyText = (k, v) => (k === "height" ? `${v}cm` : k === "weight" ? `${v}kg` : k === "birthYear" ? `${v}년생` : SEX_LABEL[v] || "");
+  const myBody = () => (S.me && S.bodies[S.me.id]) || {};
+  const inbodyOf = (id) => S.inbody.filter((r) => r.memberId === id);
+  const adminName = () => (S.members.find((m) => m.admin) || {}).name || "관리자";
+
+  function openZoom(id) {
+    const img = $("#lightImg");
+    img.dataset.alt = photoAlt(id, 2400); img.src = photoSrc(id, 2400);
+    $("#lightbox").hidden = false;
+  }
+
+  // 저장 전에 무엇이 공개되는지 보여주고 확인을 받음
+  function confirmVisibility({ title, pub, priv, notes }) {
+    return new Promise((resolve) => {
+      const li = (xs) => (xs.length ? xs.map((x) => `<li>${esc(x)}</li>`).join("") : `<li class="none">없음</li>`);
+      $("#cfTitle").textContent = title;
+      $("#cfPub").innerHTML = li(pub);
+      $("#cfPriv").innerHTML = li(priv);
+      $("#cfNotes").innerHTML = notes.map((n) => `<li>${esc(n)}</li>`).join("");
+      const sheet = $("#confirmSheet");
+      const done = (v) => { sheet.hidden = true; sheet.onclick = null; resolve(v); };
+      $("#cfOk").onclick = () => done(true);
+      $("#cfBack").onclick = () => done(false);
+      sheet.onclick = (ev) => { if (ev.target === sheet) done(false); };
+      sheet.hidden = false;
+      $("#cfOk").focus();
+    });
+  }
+  function privacyNotes(includesWeight) {
+    const notes = [];
+    if (includesWeight) notes.push("몸무게는 운동 칼로리 계산에 쓰여요. 몸무게를 공개하지 않아도 칼로리 숫자는 친구들에게 보여요.");
+    if (!S.me || S.me.role !== "admin") notes.push(`${adminName()}(관리자)는 구글 시트에서 나만 보기 정보도 볼 수 있어요.`);
+    return notes;
+  }
+
+  // Mifflin-St Jeor 공식으로 기초대사량 추정
+  function estimateBmr(b) {
+    const w = latestWeight(S.me && S.me.id) || b.weight;
+    if (!w || !b.height || !b.birthYear || !b.sex) return 0;
+    const age = new Date().getFullYear() - b.birthYear;
+    return Math.round(10 * w + 6.25 * b.height - 5 * age + (b.sex === "M" ? 5 : -161));
+  }
+  function latestWeight(id) {
+    const list = inbodyOf(id).filter((r) => r.weight);
+    return list.length ? list[list.length - 1].weight : 0;
+  }
+
+  // 측정값 하나당 작은 선 그래프 하나 (단위가 달라 한 축에 겹치지 않음)
+  function trendHtml(records) {
+    const W = 300, H = 92, L = 34, R = 10, T = 10, B = 20;
+    const charts = TREND.map(([k, label, unit]) => {
+      const pts = records.filter((r) => r[k] != null).map((r) => ({ d: r.date, v: r[k] }));
+      if (!pts.length) return "";
+      const first = pts[0], last = pts[pts.length - 1];
+      const delta = Math.round((last.v - first.v) * 10) / 10;
+      const sub = pts.length > 1 ? `처음(${fmtDate(first.d)})보다 ${delta > 0 ? "+" : ""}${delta}${unit}` : `${fmtDate(last.d)} 측정`;
+      let svg = "";
+      if (pts.length > 1) {
+        const ts = pts.map((p) => parseYmd(p.d).getTime());
+        const t0 = ts[0], t1 = ts[ts.length - 1];
+        const xs = ts.map((t, i) => (t1 > t0 ? L + ((t - t0) / (t1 - t0)) * (W - L - R) : L + (i / (pts.length - 1)) * (W - L - R)));
+        let lo = Math.min(...pts.map((p) => p.v)), hi = Math.max(...pts.map((p) => p.v));
+        if (hi - lo < 1) { lo -= 0.5; hi += 0.5; }
+        const pad = (hi - lo) * 0.12; lo -= pad; hi += pad;
+        const y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+        const fmt = (v) => (Math.round(v * 10) / 10).toString();
+        const path = pts.map((p, i) => `${i ? "L" : "M"}${xs[i].toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+        const dots = pts.map((p, i) => `<circle class="pt" cx="${xs[i].toFixed(1)}" cy="${y(p.v).toFixed(1)}" r="${i === pts.length - 1 ? 5 : 4}"></circle>`).join("");
+        const d0 = parseYmd(first.d), d1 = parseYmd(last.d);
+        svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(label)} 변화: ${esc(pts.map((p) => `${fmtDate(p.d)} ${p.v}${unit}`).join(", "))}" data-xs="${esc(JSON.stringify(xs))}">
+          <line class="grid" x1="${L}" x2="${W - R}" y1="${y(hi - pad).toFixed(1)}" y2="${y(hi - pad).toFixed(1)}"></line>
+          <line class="grid" x1="${L}" x2="${W - R}" y1="${y(lo + pad).toFixed(1)}" y2="${y(lo + pad).toFixed(1)}"></line>
+          <text class="axis" x="${L - 6}" y="${(y(hi - pad) + 3).toFixed(1)}" text-anchor="end">${fmt(hi - pad)}</text>
+          <text class="axis" x="${L - 6}" y="${(y(lo + pad) + 3).toFixed(1)}" text-anchor="end">${fmt(lo + pad)}</text>
+          <text class="axis" x="${L}" y="${H - 4}" text-anchor="start">${d0.getMonth() + 1}.${d0.getDate()}</text>
+          <text class="axis" x="${W - R}" y="${H - 4}" text-anchor="end">${d1.getMonth() + 1}.${d1.getDate()}</text>
+          <line class="xh" x1="0" x2="0" y1="${T}" y2="${H - B}" visibility="hidden"></line>
+          <path class="line" d="${path}"></path>${dots}
+        </svg>`;
+      }
+      return `<figure class="trend" data-unit="${esc(unit)}" data-pts="${esc(JSON.stringify(pts))}">
+        <figcaption><span>${label}</span><b>${last.v}${unit}</b><small>${esc(sub)}</small></figcaption>${svg}<div class="tip" hidden></div>
+      </figure>`;
+    }).join("");
+    return charts ? `<div class="trends">${charts}</div>` : "";
+  }
+  function trendHover(ev) {
+    const svg = ev.target.closest && ev.target.closest(".trend svg");
+    document.querySelectorAll(".trend .tip:not([hidden])").forEach((t) => {
+      if (svg && t.parentElement === svg.parentElement) return;
+      t.hidden = true;
+      const xh = t.parentElement.querySelector(".xh"); if (xh) xh.setAttribute("visibility", "hidden");
+    });
+    if (!svg) return;
+    const fig = svg.parentElement, tip = fig.querySelector(".tip");
+    const pts = JSON.parse(fig.dataset.pts), xs = JSON.parse(svg.dataset.xs);
+    const rect = svg.getBoundingClientRect();
+    const vx = ((ev.clientX - rect.left) / rect.width) * 300;
+    let i = 0;
+    xs.forEach((x, k) => { if (Math.abs(x - vx) < Math.abs(xs[i] - vx)) i = k; });
+    tip.textContent = `${fmtDate(pts[i].d)} · ${pts[i].v}${fig.dataset.unit}`;
+    tip.hidden = false;
+    const fr = fig.getBoundingClientRect();
+    // 풍선이 카드 밖으로 잘리지 않게 좌우 끝을 막음
+    const half = tip.offsetWidth / 2 || 50;
+    const left = Math.min(Math.max(rect.left - fr.left + (xs[i] / 300) * rect.width, half + 4), fr.width - half - 4);
+    tip.style.left = `${left.toFixed(0)}px`;
+    tip.style.top = `${(rect.top - fr.top - 6).toFixed(0)}px`;
+    tip.hidden = false;
+    const xh = svg.querySelector(".xh");
+    xh.setAttribute("x1", xs[i]); xh.setAttribute("x2", xs[i]); xh.setAttribute("visibility", "visible");
+  }
+  document.addEventListener("pointermove", trendHover);
+  document.addEventListener("pointerdown", trendHover);
+
+  function inbodyItem(r, mine) {
+    const vals = IB_FIELDS.filter(([k]) => r[k] != null).map(([k, l, u]) => `<span>${l} <b class="num">${r[k]}</b>${u}</span>`).join("");
+    const acts = [
+      validFileId(r.photo) ? `<button type="button" class="act" data-ib="zoom" data-id="${esc(r.photo)}">결과지 보기</button>` : "",
+      mine ? `<button type="button" class="act" data-ib="edit" data-id="${esc(r.id)}">수정</button><button type="button" class="act danger" data-ib="del" data-id="${esc(r.id)}">삭제</button>` : "",
+    ].join("");
+    return `<div class="ibitem">
+      <div class="ibtop"><b class="num">${fmtDate(r.date)}</b>${mine ? `<span class="badge">${r.public ? "친구들에게 공개" : "나만 보기"}</span>` : ""}</div>
+      <div class="ibvals">${vals}</div>${acts ? `<div class="actions">${acts}</div>` : ""}
+    </div>`;
+  }
+
+  // --- 내 몸 기록 ---
+  function openBody() {
+    const b = myBody();
+    ["height", "weight", "birthYear"].forEach((k) => ($("#b-" + k).value = b[k] || ""));
+    $("#b-sex").value = b.sex || "";
+    $("#b-birthYear").max = new Date().getFullYear() - 5;
+    const pub = b.pub || [];
+    $("#bodyForm").querySelectorAll("[data-pub]").forEach((c) => (c.checked = pub.includes(c.dataset.pub)));
+    $("#bodyErr").hidden = true;
+    renderBodySheet();
+    openSheet("bodySheet");
+  }
+  function renderBodySheet() {
+    const b = myBody();
+    const est = estimateBmr(b);
+    const mine = inbodyOf(S.me && S.me.id);
+    const measured = [...mine].reverse().find((r) => r.bmr);
+    const parts = [];
+    if (est) parts.push(`예상 기초대사량 <b>${est.toLocaleString("ko-KR")}</b>kcal/일`);
+    if (measured) parts.push(`인바디 측정 <b>${measured.bmr.toLocaleString("ko-KR")}</b>kcal`);
+    if (!b.weight && !latestWeight(S.me && S.me.id)) parts.push("몸무게를 입력하면 운동 칼로리가 계산돼요.");
+    else if (!est) parts.push("키·출생 연도·성별까지 입력하면 기초대사량도 알려드려요.");
+    $("#bmrLine").innerHTML = parts.join(" · ");
+    $("#myTrend").innerHTML = trendHtml(mine);
+    $("#myInbody").innerHTML = mine.length
+      ? [...mine].reverse().map((r) => inbodyItem(r, true)).join("")
+      : `<p class="veil-note">아직 인바디 기록이 없어요. 측정할 때마다 추가하면 변화 그래프가 그려져요.</p>`;
+  }
+  $("#bodyForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const body = { sex: $("#b-sex").value, pub: [] };
+    ["height", "weight", "birthYear"].forEach((k) => (body[k] = $("#b-" + k).value === "" ? "" : Number($("#b-" + k).value)));
+    $("#bodyForm").querySelectorAll("[data-pub]").forEach((c) => { if (c.checked) body.pub.push(c.dataset.pub); });
+    const pub = [], priv = [];
+    Object.keys(BODY_LABELS).forEach((k) => {
+      if (body[k] === "" || body[k] == null) return;
+      const line = `${BODY_LABELS[k]}: ${bodyText(k, body[k])}`;
+      (body.pub.includes(k) ? pub : priv).push(line);
+    });
+    const ok = await confirmVisibility({
+      title: pub.length || priv.length ? "기본 정보 공개 범위 확인" : "기본 정보를 모두 지울까요?",
+      pub, priv, notes: privacyNotes(body.weight !== ""),
+    });
+    if (!ok) return;
+    try {
+      apply(await api("saveBody", { body }));
+      renderBodySheet();
+      toast("기본 정보를 저장했어요");
+    } catch (e) { $("#bodyErr").textContent = errText(e); $("#bodyErr").hidden = false; }
+  });
+
+  // --- 인바디 작성/수정 ---
+  const IB = { id: null, file: null, url: null, removed: false };
+  function setIbPreview(src) {
+    if (IB.url && src !== IB.url) { URL.revokeObjectURL(IB.url); IB.url = null; }
+    const img = $("#i-preview");
+    if (src) { img.src = src; img.hidden = false; } else { img.removeAttribute("src"); img.hidden = true; }
+    $("#i-removePhoto").hidden = !src;
+    $("#i-pick").textContent = src ? "다른 사진" : "사진 선택";
+  }
+  function openInbody(id) {
+    const r = id ? S.inbody.find((x) => x.id === id) : null;
+    IB.id = r ? r.id : null; IB.file = null; IB.removed = false;
+    $("#ibTitle").textContent = r ? "인바디 기록 수정" : "인바디 기록 추가";
+    $("#i-date").value = r ? r.date : ymd(new Date());
+    $("#i-date").max = ymd(new Date());
+    IB_FIELDS.forEach(([k]) => ($("#i-" + k).value = r && r[k] != null ? r[k] : ""));
+    $("#i-photo").value = "";
+    setIbPreview(r && validFileId(r.photo) ? photoSrc(r.photo, 800) : null);
+    document.querySelector(`input[name="i-vis"][value="${r && r.public ? "public" : "private"}"]`).checked = true;
+    $("#ibErr").hidden = true;
+    openSheet("inbodySheet");
+  }
+  // 키를 알면 체중으로 BMI 칸을 미리 채워줌
+  $("#i-weight").addEventListener("input", () => {
+    const h = myBody().height, w = Number($("#i-weight").value);
+    if (h && w && !$("#i-bmi").dataset.touched) $("#i-bmi").value = (Math.round((w / ((h / 100) ** 2)) * 10) / 10).toString();
+  });
+  $("#i-bmi").addEventListener("input", () => ($("#i-bmi").dataset.touched = "1"));
+  $("#i-photo").addEventListener("change", () => {
+    const f = $("#i-photo").files[0]; if (!f) return;
+    IB.file = f; IB.removed = false;
+    const url = URL.createObjectURL(f);
+    setIbPreview(url); IB.url = url;
+  });
+  $("#i-removePhoto").addEventListener("click", () => { IB.file = null; IB.removed = true; $("#i-photo").value = ""; setIbPreview(null); });
+  $("#ibCancel").addEventListener("click", () => { delete $("#i-bmi").dataset.touched; renderBodySheet(); openSheet("bodySheet"); });
+  $("#addInbody").addEventListener("click", () => { delete $("#i-bmi").dataset.touched; openInbody(null); });
+
+  $("#inbodyForm").addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const err = $("#ibErr");
+    const record = { id: IB.id || undefined, date: $("#i-date").value, public: document.querySelector('input[name="i-vis"]:checked').value === "public", removePhoto: IB.removed };
+    IB_FIELDS.forEach(([k]) => (record[k] = $("#i-" + k).value === "" ? "" : Number($("#i-" + k).value)));
+    if (!validDate(record.date)) { err.textContent = "측정일을 골라주세요."; err.hidden = false; return; }
+    const filled = IB_FIELDS.filter(([k]) => record[k] !== "").map(([k, l, u]) => `${l} ${record[k]}${u}`);
+    if (!filled.length) { err.textContent = "측정값을 하나 이상 입력해주세요."; err.hidden = false; return; }
+    err.hidden = true;
+    const hasPhoto = !!IB.file || (!IB.removed && IB.id && validFileId((S.inbody.find((x) => x.id === IB.id) || {}).photo));
+    const items = [`${fmtDate(record.date)} 측정값: ${filled.join(", ")}`].concat(hasPhoto ? ["결과지 사진"] : []);
+    const ok = await confirmVisibility({
+      title: "인바디 기록 공개 범위 확인",
+      pub: record.public ? items : [], priv: record.public ? [] : items,
+      notes: privacyNotes(record.weight !== ""),
+    });
+    if (!ok) return;
+    const btn = $("#ibSave"); btn.disabled = true;
+    try {
+      if (IB.file) {
+        btn.textContent = "사진 올리는 중…";
+        const blob = await shrink(IB.file);
+        record.photo = { mime: blob.type || "image/jpeg", data: await toBase64(blob) };
+      }
+      apply(await api("saveInbody", { record }));
+      delete $("#i-bmi").dataset.touched;
+      renderBodySheet(); openSheet("bodySheet");
+      toast("인바디 기록을 저장했어요");
+    } catch (e) { err.textContent = errText(e); err.hidden = false; }
+    finally { btn.disabled = false; btn.textContent = "저장"; }
+  });
+
+  $("#myInbody").addEventListener("click", async (ev) => {
+    const b = ev.target.closest("[data-ib]"); if (!b) return;
+    const id = b.dataset.id;
+    if (b.dataset.ib === "zoom") return openZoom(id);
+    if (b.dataset.ib === "edit") { delete $("#i-bmi").dataset.touched; $("#i-bmi").dataset.touched = "1"; return openInbody(id); }
+    if (!b.classList.contains("armed")) {
+      b.classList.add("armed"); b.textContent = "한 번 더 누르면 삭제";
+      setTimeout(() => { if (b.isConnected) { b.classList.remove("armed"); b.textContent = "삭제"; } }, 3500);
+      return;
+    }
+    b.disabled = true;
+    try { apply(await api("deleteInbody", { id })); renderBodySheet(); toast("삭제했어요"); }
+    catch (e) { toast(errText(e)); b.disabled = false; }
+  });
+
+  // --- 멤버 상세 (다른 사람이 공개한 정보만 보임) ---
+  function openMember(id) {
+    const m = S.members.find((x) => x.id === id); if (!m) return;
+    const b = S.bodies[id] || {};
+    const facts = Object.keys(BODY_LABELS).filter((k) => b[k]).map((k) => `<span>${esc(bodyText(k, b[k]))}</span>`).join("");
+    const t = new Date();
+    const a = ymd(new Date(t.getFullYear(), t.getMonth(), 1)), z = ymd(new Date(t.getFullYear(), t.getMonth() + 1, 0));
+    const list = S.entries.filter((e) => e.memberId === id && e.date >= a && e.date <= z);
+    const days = new Set(list.map((e) => e.date)).size;
+    const mins = list.reduce((s, e) => s + (Number(e.minutes) || 0), 0);
+    const kcal = kcalIn(list, a, z);
+    const ib = inbodyOf(id);
+    $("#mHead").innerHTML = `${avatar(m)}<b>${esc(m.name || "친구")}</b>`;
+    $("#mBody").innerHTML = `
+      <section><h4>이번 달</h4><p class="bmr">${list.length ? `운동 <b>${days}</b>일 · 총 <b>${esc(fmtMinutes(mins))}</b>${kcal ? ` · 약 <b>${kcal.toLocaleString("ko-KR")}</b>kcal` : ""}` : "이번 달 기록이 아직 없어요."}</p></section>
+      <section><h4>공개한 정보</h4>${facts ? `<div class="facts">${facts}</div>` : `<p class="veil-note">공개한 몸 정보가 없어요.</p>`}</section>
+      <section><h4>인바디</h4>${ib.length ? trendHtml(ib) + `<div class="iblist">${[...ib].reverse().map((r) => inbodyItem(r, false)).join("")}</div>` : `<p class="veil-note">공개한 인바디 기록이 없어요.</p>`}</section>`;
+    openSheet("memberSheet");
+  }
+  $("#mBody").addEventListener("click", (ev) => { const b = ev.target.closest('[data-ib="zoom"]'); if (b) openZoom(b.dataset.id); });
+
   // ---------- page events ----------
   $("#prev").addEventListener("click", () => { if (S.view === "week") S.weekOffset--; else S.monthOffset--; render(); });
   $("#next").addEventListener("click", () => {
@@ -642,6 +950,11 @@
   $("#fab").addEventListener("click", () => openEntry(null));
   $("#rules").addEventListener("click", (ev) => { if (ev.target.closest("#editRules")) openRules(); });
   $("#manage").addEventListener("click", openManage);
+  $("#openBody").addEventListener("click", openBody);
+  $("#board").addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-member]"); if (!b) return;
+    if (S.me && b.dataset.member === S.me.id) openBody(); else openMember(b.dataset.member);
+  });
   $("#signout").addEventListener("click", () => {
     try { localStorage.removeItem(KEY_STORE); } catch (_) {}
     KEY = ""; S.loaded = false;
