@@ -16,7 +16,8 @@
 
   const S = {
     me: null, members: [], entries: [], settings: null, loaded: false,
-    weekOffset: 0, mineOnly: false,
+    view: (() => { try { return localStorage.getItem("healthy.view") === "month" ? "month" : "week"; } catch (_) { return "week"; } })(),
+    weekOffset: 0, monthOffset: 0, mineOnly: false,
     editingId: null, photoFile: null, photoRemoved: false,
   };
 
@@ -90,9 +91,17 @@
       title: (c.title || "").trim() || "주 3회 운동 내기",
       goal: Math.min(7, Math.max(1, Number(c.goal) || 3)),
       fine: Number.isFinite(fine) && fine >= 0 ? fine : 10000,
-      note: c.note || "",
       start: validDate(c.start) ? c.start : ymd(mondayOf(new Date())),
+      rules: parseRules(c),
     };
+  }
+  // 추가 규칙 목록. 예전 버전의 '벌금 사용처 / 메모'는 첫 규칙으로 보여줌
+  function parseRules(c) {
+    let r = c.rules;
+    if (typeof r === "string") { try { r = JSON.parse(r || "[]"); } catch (_) { r = []; } }
+    r = Array.isArray(r) ? r.map((x) => String(x).trim()).filter(Boolean) : [];
+    if (!r.length && c.note) r = [String(c.note)];
+    return r;
   }
 
   // ---------- derived ----------
@@ -125,11 +134,13 @@
     return missed;
   }
   const selMonday = () => addDays(mondayOf(new Date()), S.weekOffset * 7);
+  const selMonth = () => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth() + S.monthOffset, 1); };
+  const hueOf = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
+  const fmtMinutes = (n) => (n >= 60 ? `${Math.floor(n / 60)}시간${n % 60 ? ` ${n % 60}분` : ""}` : `${n}분`);
 
   // 프로필 사진이 있으면 사진, 없거나 못 불러오면 이름 첫 글자
   function avatar(m, previewUrl) {
-    let h = 0;
-    for (const ch of String(m.id)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    const h = hueOf(m.id);
     const initial = (m.name || "?").trim().charAt(0) || "?";
     const style = `background:hsl(${h} 55% 42%)`;
     const src = previewUrl || (validFileId(m.avatar) ? photoSrc(m.avatar, 200) : "");
@@ -167,26 +178,42 @@
       `<span class="rule">미달 시 ${esc(won(c.fine))}</span>` +
       `<span class="rule">${startD.getMonth() + 1}월 ${startD.getDate()}일 주부터</span>` +
       `<span class="rule pot">모인 벌금 <span class="num">${esc(won(pot))}</span></span>` +
-      (c.note ? `<span class="rule">${esc(c.note)}</span>` : "") +
       (isAdmin ? `<button class="linkbtn" type="button" id="editRules">규칙 수정</button>` : "");
+    $("#ruleList").innerHTML = c.rules.map((r) => `<li>${esc(r)}</li>`).join("");
+    $("#ruleList").hidden = !c.rules.length;
 
-    // week nav
+    // 기간: 주간 또는 월별
+    const isWeek = S.view === "week";
+    $("#viewWeek").setAttribute("aria-pressed", String(isWeek));
+    $("#viewMonth").setAttribute("aria-pressed", String(!isWeek));
     const mon = selMonday();
     const sun = addDays(mon, 6);
-    const isCurrent = S.weekOffset === 0;
-    $("#weekTitle").textContent = isCurrent ? "이번 주" : S.weekOffset === -1 ? "지난 주" : `${-S.weekOffset}주 전`;
-    $("#weekRange").textContent = `${mon.getMonth() + 1}.${mon.getDate()} – ${sun.getMonth() + 1}.${sun.getDate()}`;
+    const m1 = selMonth();
+    const mEnd = new Date(m1.getFullYear(), m1.getMonth() + 1, 0);
+    const isCurrent = isWeek ? S.weekOffset === 0 : S.monthOffset === 0;
+    if (isWeek) {
+      $("#weekTitle").textContent = isCurrent ? "이번 주" : S.weekOffset === -1 ? "지난 주" : `${-S.weekOffset}주 전`;
+      $("#weekRange").textContent = `${mon.getMonth() + 1}.${mon.getDate()} – ${sun.getMonth() + 1}.${sun.getDate()}`;
+    } else {
+      $("#weekTitle").textContent = isCurrent ? "이번 달" : S.monthOffset === -1 ? "지난 달" : `${-S.monthOffset}개월 전`;
+      $("#weekRange").textContent = `${m1.getFullYear()}년 ${m1.getMonth() + 1}월`;
+    }
     $("#next").disabled = isCurrent;
+    $("#boardSub").textContent = isWeek ? "요일별 운동한 날" : "날짜별 운동한 멤버";
+    const rangeA = isWeek ? ymd(mon) : ymd(m1);
+    const rangeB = isWeek ? ymd(sun) : ymd(mEnd);
 
     // board
     const today = ymd(new Date());
     const daysLeft = 7 - ((new Date().getDay() + 6) % 7); // 오늘 포함
-    const rows = ms.map((m) => ({ m, days: daysIn(m.list, mon), mins: minutesIn(m.list, mon), missed: missedWeeks(m) }))
-      .sort((a, b) => b.days.size - a.days.size || b.mins - a.mins || String(a.m.name).localeCompare(String(b.m.name), "ko"));
     const board = $("#board");
-    if (!rows.length) {
-      board.innerHTML = `<div class="empty"><strong>아직 참가한 사람이 없어요</strong>${isAdmin ? "아래 ‘참가자 관리’에서 친구를 추가하고 링크를 보내주세요." : "친구들이 참가하면 순위가 여기에 표시돼요."}</div>`;
+    if (!ms.length) {
+      board.innerHTML = `<div class="empty"><strong>아직 참가한 사람이 없어요</strong>${isAdmin ? "아래 ‘참가자 관리’에서 친구를 추가하고 링크를 보내주세요." : "친구들이 참가하면 여기에 표시돼요."}</div>`;
+    } else if (!isWeek) {
+      board.innerHTML = monthBoard(ms, m1, mEnd, today);
     } else {
+      const rows = ms.map((m) => ({ m, days: daysIn(m.list, mon), mins: minutesIn(m.list, mon), missed: missedWeeks(m) }))
+        .sort((a, b) => b.days.size - a.days.size || b.mins - a.mins || String(a.m.name).localeCompare(String(b.m.name), "ko"));
       board.innerHTML = rows.map((r, i) => {
         const done = r.days.size;
         let chip;
@@ -201,7 +228,7 @@
         const isMe = S.me && r.m.id === S.me.id;
         const owed = r.missed
           ? `<div class="owed"><span>지금까지 미달 <span class="num">${r.missed}</span>주</span><span>낼 벌금 <b>${esc(won(r.missed * c.fine))}</b></span></div>`
-          : `<div class="owed"><span>아직 낼 벌금 없음</span></div>`;
+          : `<div class="owed"><span>아직 기록 없음</span></div>`;
         return `<div class="row">
           <div class="rank">${i + 1}</div>
           ${avatar(r.m)}
@@ -213,7 +240,7 @@
     }
 
     // feed
-    const a = ymd(mon), b = ymd(sun);
+    const a = rangeA, b = rangeB;
     const byId = Object.fromEntries(ms.map((m) => [m.id, m]));
     let entries = S.entries.filter((e) => byId[e.memberId] && e.date >= a && e.date <= b);
     if (S.mineOnly && S.me) entries = entries.filter((e) => e.memberId === S.me.id);
@@ -221,7 +248,7 @@
     $("#feedCount").textContent = `${entries.length}개`;
     const feed = $("#feed");
     if (!entries.length) {
-      feed.innerHTML = `<div class="card veiled"><div class="empty"><strong>${isCurrent ? "이번 주" : "이 주"} 기록이 아직 없어요</strong>운동하고 ‘+ 기록하기’로 날짜, 종목, 시간, 사진을 남기면 여기에 쌓여요.</div></div>`;
+      feed.innerHTML = `<div class="card veiled"><div class="empty"><strong>${isWeek ? (isCurrent ? "이번 주" : "이 주") : (isCurrent ? "이번 달" : "이 달")} 기록이 아직 없어요</strong>운동하고 ‘+ 기록하기’로 날짜, 종목, 시간, 사진을 남기면 여기에 쌓여요.</div></div>`;
     } else {
       let lastDate = "";
       feed.innerHTML = entries.map((e) => {
@@ -248,7 +275,7 @@
         return `${head}<article class="card${veiled ? " veiled" : ""}">
           <div class="card-head">${avatar(m)}<span class="name">${esc(m.name || "친구")}</span>${e.hidden ? `<span class="badge">${mine ? "숨김 · 나만 보기" : "숨긴 기록"}</span>` : ""}<span class="when num">${d.getMonth() + 1}.${d.getDate()}</span></div>
           <div class="what"><span class="kind">${esc(e.kind || "운동")}</span>${stats ? `<span class="stats">${esc(stats)}</span>` : ""}</div>
-          ${veiled ? `<p class="veil-note">사진과 메모는 숨겨져 있어요. 운동한 날은 순위표에 반영돼요.</p>` : ""}
+          ${veiled ? `<p class="veil-note">사진과 메모는 숨겨져 있어요. 운동한 날은 멤버 현황에 반영돼요.</p>` : ""}
           ${memo}${photo}${actions}
         </article>`;
       }).join("");
@@ -263,6 +290,47 @@
     $("#meLine").textContent = S.me ? `${S.me.name || "나"}(으)로 참여 중` : "";
     $("#manage").hidden = !isAdmin;
     $("#fab").hidden = false;
+  }
+
+  // 월별 보기: 달력(날짜마다 운동한 멤버 색 점) + 멤버별 합계
+  function monthBoard(ms, m1, mEnd, today) {
+    const a = ymd(m1), b = ymd(mEnd);
+    const byDate = {};
+    const rows = ms.map((m) => {
+      const list = m.list.filter((e) => e.date >= a && e.date <= b);
+      const days = new Set(list.map((e) => e.date));
+      days.forEach((d) => (byDate[d] = byDate[d] || []).push(m));
+      return {
+        m, days: days.size, n: list.length,
+        mins: list.reduce((t, e) => t + (Number(e.minutes) || 0), 0),
+        km: Math.round(list.reduce((t, e) => t + (Number(e.km) || 0), 0) * 10) / 10,
+      };
+    }).sort((x, y) => y.days - x.days || y.mins - x.mins || String(x.m.name).localeCompare(String(y.m.name), "ko"));
+
+    let cal = WD.map((w) => `<div class="wd">${w}</div>`).join("");
+    cal += "<div></div>".repeat((m1.getDay() + 6) % 7);
+    for (let d = 1; d <= mEnd.getDate(); d++) {
+      const ds = ymd(new Date(m1.getFullYear(), m1.getMonth(), d));
+      const who = byDate[ds] || [];
+      const dots = who.slice(0, 6).map((m) => `<i style="background:hsl(${hueOf(m.id)} 55% 42%)" title="${esc(m.name)}"></i>`).join("")
+        + (who.length > 6 ? `<em>+${who.length - 6}</em>` : "");
+      const label = `${m1.getMonth() + 1}월 ${d}일${who.length ? ": " + who.map((m) => m.name).join(", ") : ""}`;
+      cal += `<div class="cday${who.length ? " has" : ""}${ds === today ? " today" : ""}${ds > today ? " future" : ""}" title="${esc(label)}" aria-label="${esc(label)}"><span class="cnum">${d}</span><span class="cdots">${dots}</span></div>`;
+    }
+
+    const list = rows.map((r, i) => {
+      const isMe = S.me && r.m.id === S.me.id;
+      const stats = r.n
+        ? `총 <span class="num">${esc(fmtMinutes(r.mins))}</span>${r.km ? ` · <span class="num">${r.km}</span>km` : ""} · 기록 <span class="num">${r.n}</span>개`
+        : "아직 기록 없음";
+      return `<div class="row">
+        <div class="rank">${i + 1}</div>
+        ${avatar(r.m)}
+        <div class="who"><div class="name">${esc(r.m.name || "친구")}${isMe ? `<span class="me">나</span>` : ""}</div><div class="mstats">${stats}</div></div>
+        <div class="score"><div class="count">${r.days}<small>일</small></div></div>
+      </div>`;
+    }).join("");
+    return `<div class="cal">${cal}</div>${list}`;
   }
 
   let toastTimer;
@@ -379,7 +447,9 @@
       apply(await api("saveEntry", { entry }));
       closeSheets();
       toast(S.editingId ? "수정했어요" : "기록했어요");
-      S.weekOffset = Math.round((mondayOf(parseYmd(date)) - mondayOf(new Date())) / (7 * 864e5));
+      const saved = parseYmd(date), now = new Date();
+      S.weekOffset = Math.round((mondayOf(saved) - mondayOf(now)) / (7 * 864e5));
+      S.monthOffset = (saved.getFullYear() - now.getFullYear()) * 12 + saved.getMonth() - now.getMonth();
       render();
     } catch (e) {
       if (e && e.error === "invalid_key") return;
@@ -450,21 +520,52 @@
     finally { btn.disabled = false; btn.textContent = "저장"; }
   });
 
-  // rules (admin)
+  // rules (admin): 기본 규칙 + 추가 규칙 목록(추가·수정·삭제)
+  const MAX_RULES = 20;
+  function addRuleRow(text, focus) {
+    const box = $("#ruleEdit");
+    const row = document.createElement("div");
+    row.className = "rrow";
+    row.innerHTML = `<span class="rno"></span><input type="text" maxlength="80" placeholder="예: 운동 인증은 사진 필수"><button type="button" class="act danger" data-del>삭제</button>`;
+    row.querySelector("input").value = text || "";
+    box.appendChild(row);
+    numberRules();
+    if (focus) row.querySelector("input").focus();
+  }
+  function numberRules() {
+    const rows = [...$("#ruleEdit").children];
+    rows.forEach((r, i) => { r.querySelector(".rno").textContent = i + 1; r.querySelector("input").setAttribute("aria-label", `추가 규칙 ${i + 1}`); });
+    $("#addRule").disabled = rows.length >= MAX_RULES;
+  }
+  $("#addRule").addEventListener("click", () => addRuleRow("", true));
+  $("#ruleEdit").addEventListener("click", (ev) => {
+    if (!ev.target.closest("[data-del]")) return;
+    ev.target.closest(".rrow").remove();
+    numberRules();
+  });
   function openRules() {
     const c = cfg();
     $("#r-title").value = c.title; $("#r-goal").value = c.goal; $("#r-fine").value = c.fine;
-    $("#r-start").value = c.start; $("#r-note").value = c.note; $("#rulesErr").hidden = true;
+    $("#r-start").value = c.start; $("#rulesErr").hidden = true;
+    $("#ruleEdit").innerHTML = "";
+    c.rules.forEach((r) => addRuleRow(r));
+    numberRules();
     openSheet("rulesSheet");
   }
   $("#rulesForm").addEventListener("submit", async (ev) => {
     ev.preventDefault();
+    const rules = [...$("#ruleEdit").querySelectorAll("input")].map((i) => i.value.trim()).filter(Boolean);
+    // 예전 서버 코드는 rules를 모르니, 그때는 규칙을 메모 칸에 합쳐서라도 남김
+    const serverKnowsRules = !!(S.settings && "rules" in S.settings);
     const settings = {
       title: $("#r-title").value.trim(), goal: $("#r-goal").value, fine: $("#r-fine").value,
-      start: $("#r-start").value, note: $("#r-note").value.trim(),
+      start: $("#r-start").value, rules, note: serverKnowsRules ? "" : rules.join(" / ").slice(0, 60),
     };
-    try { apply(await api("saveSettings", { settings })); closeSheets(); toast("규칙을 저장했어요"); }
-    catch (e) { $("#rulesErr").textContent = errText(e); $("#rulesErr").hidden = false; }
+    try {
+      apply(await api("saveSettings", { settings }));
+      closeSheets();
+      toast(serverKnowsRules || rules.length < 2 ? "규칙을 저장했어요" : "저장했어요. 규칙을 따로따로 보려면 Apps Script를 새 버전으로 배포해주세요");
+    } catch (e) { $("#rulesErr").textContent = errText(e); $("#rulesErr").hidden = false; }
   });
 
   // members (admin)
@@ -522,8 +623,19 @@
   });
 
   // ---------- page events ----------
-  $("#prev").addEventListener("click", () => { S.weekOffset--; render(); });
-  $("#next").addEventListener("click", () => { if (S.weekOffset < 0) { S.weekOffset++; render(); } });
+  $("#prev").addEventListener("click", () => { if (S.view === "week") S.weekOffset--; else S.monthOffset--; render(); });
+  $("#next").addEventListener("click", () => {
+    if (S.view === "week" && S.weekOffset < 0) S.weekOffset++;
+    else if (S.view === "month" && S.monthOffset < 0) S.monthOffset++;
+    render();
+  });
+  function setView(v) {
+    S.view = v;
+    try { localStorage.setItem("healthy.view", v); } catch (_) {}
+    render();
+  }
+  $("#viewWeek").addEventListener("click", () => setView("week"));
+  $("#viewMonth").addEventListener("click", () => setView("month"));
   $("#tabAll").addEventListener("click", () => { S.mineOnly = false; $("#tabAll").setAttribute("aria-pressed", "true"); $("#tabMine").setAttribute("aria-pressed", "false"); render(); });
   $("#tabMine").addEventListener("click", () => { S.mineOnly = true; $("#tabMine").setAttribute("aria-pressed", "true"); $("#tabAll").setAttribute("aria-pressed", "false"); render(); });
   $("#fab").addEventListener("click", () => openEntry(null));

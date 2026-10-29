@@ -52,6 +52,14 @@ h1 { font-family: var(--font-display); font-weight: 400; font-size: clamp(34px, 
 .rule.pot { background: var(--ink); color: var(--bg); }
 .linkbtn { background: none; border: 0; padding: 4px 2px; color: var(--accent); font-size: 13px; font-weight: 500; text-decoration: underline; text-underline-offset: 3px; }
 
+.rulelist { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 2px; font-size: 14px; }
+.rulelist li::marker { color: var(--muted); font-family: var(--font-num); }
+
+/* View tabs */
+.viewtabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; margin-bottom: -16px; }
+.viewtabs button { border: 0; background: none; border-radius: 9px; padding: 8px 0; font-weight: 700; color: var(--muted); }
+.viewtabs button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
 /* Week navigator */
 .weeknav { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-block: 2px solid var(--ink); padding-block: 8px; }
 .weeknav button { background: none; border: 0; font-size: 22px; line-height: 1; width: 40px; height: 36px; border-radius: 8px; }
@@ -88,6 +96,20 @@ img.avatar { object-fit: cover; }
 .owed b { color: var(--bad); font-family: var(--font-num); font-weight: 600; }
 .empty { padding: 28px 20px; text-align: center; color: var(--muted); }
 .empty strong { display: block; color: var(--ink); margin-bottom: 4px; }
+
+/* Month calendar */
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.cal .wd { font-size: 11px; color: var(--muted); text-align: center; font-weight: 500; }
+.cday { min-height: 54px; border-radius: 8px; background: var(--bg); padding: 4px 5px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.cday.today { box-shadow: inset 0 0 0 2px var(--ink); }
+.cday.future { opacity: .45; }
+.cday .cnum { font-family: var(--font-num); font-size: 12px; color: var(--muted); }
+.cday.has .cnum { color: var(--ink); font-weight: 600; }
+.cdots { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+.cdots i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+.cdots em { font-style: normal; font-size: 10px; color: var(--muted); }
+.mstats { font-size: 12px; color: var(--muted); }
+.mstats .num { color: var(--ink); }
 
 /* Feed */
 .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
@@ -165,6 +187,17 @@ img.avatar { object-fit: cover; }
 .profile-pic { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .profile-pic .avatar { width: 88px; height: 88px; font-size: 34px; }
 .profile-pic .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Rule editor */
+.rulegroup { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+.rulegroup b { font-size: 14px; }
+.rulegroup span { font-size: 12px; color: var(--muted); }
+.ruleedit { display: flex; flex-direction: column; gap: 8px; }
+.ruleedit:empty::before { content: "아직 추가 규칙이 없어요."; font-size: 13px; color: var(--muted); }
+.rrow { display: flex; gap: 6px; align-items: center; }
+.rrow .rno { font-family: var(--font-num); font-size: 13px; color: var(--muted); width: 18px; text-align: right; flex: none; }
+.rrow input { flex: 1; min-width: 0; border: 1.5px solid var(--line); background: var(--bg); border-radius: 10px; padding: 9px 12px; }
+#addRule { align-self: flex-start; }
 
 /* Roster */
 .roster { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }

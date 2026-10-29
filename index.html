@@ -39,16 +39,22 @@
     <div class="eyebrow">JJJ Healthy Girl</div>
     <h1 id="title">주 3회 운동 내기</h1>
     <div class="rules" id="rules"></div>
+    <ol class="rulelist" id="ruleList" hidden></ol>
   </header>
 
-  <nav class="weeknav" aria-label="주 선택">
-    <button id="prev" type="button" aria-label="이전 주">‹</button>
+  <div class="viewtabs" role="group" aria-label="보기 방식">
+    <button type="button" id="viewWeek" aria-pressed="true">주간</button>
+    <button type="button" id="viewMonth" aria-pressed="false">월별</button>
+  </div>
+
+  <nav class="weeknav" aria-label="기간 선택">
+    <button id="prev" type="button" aria-label="이전">‹</button>
     <div class="label"><b id="weekTitle">이번 주</b><span id="weekRange" class="num"></span></div>
-    <button id="next" type="button" aria-label="다음 주">›</button>
+    <button id="next" type="button" aria-label="다음">›</button>
   </nav>
 
   <section>
-    <h2>순위표 <small>요일별 운동한 날</small></h2>
+    <h2>멤버 <small id="boardSub">요일별 운동한 날</small></h2>
     <div class="board" id="board">
       <div class="empty"><strong>기록을 불러오는 중이에요</strong>참가한 친구들의 이번 주 운동일이 여기에 표시돼요.</div>
     </div>
@@ -100,7 +106,7 @@
         <small class="veil-note">인증샷이나 운동 앱 캡처를 올려보세요. 큰 사진은 자동으로 줄여서 올려요.</small>
       </div>
     </div>
-    <label class="check"><input type="checkbox" id="f-hidden"><span>친구들에게 사진·메모 숨기기<small>운동한 날과 종목은 순위표에 그대로 반영돼요.</small></span></label>
+    <label class="check"><input type="checkbox" id="f-hidden"><span>친구들에게 사진·메모 숨기기<small>운동한 날과 종목은 멤버 현황에 그대로 반영돼요.</small></span></label>
     <p class="err" id="entryErr" hidden></p>
     <div class="sheet-foot">
       <button type="button" class="btn" data-close>취소</button>
@@ -121,7 +127,7 @@
       </div>
       <input type="file" id="p-photo" accept="image/*" hidden>
     </div>
-    <label class="field"><span>순위표에 보일 이름</span><input type="text" id="n-name" maxlength="20" required></label>
+    <label class="field"><span>멤버 목록에 보일 이름</span><input type="text" id="n-name" maxlength="20" required></label>
     <p class="err" id="nameErr" hidden></p>
     <div class="sheet-foot">
       <button type="button" class="btn" data-close>취소</button>
@@ -134,13 +140,16 @@
 <div class="scrim" id="rulesSheet" hidden>
   <form class="sheet" id="rulesForm" novalidate>
     <h3>내기 규칙</h3>
-    <label class="field"><span>내기 이름</span><input type="text" id="r-title" maxlength="40"></label>
+    <label class="field"><span>내기 이름 (페이지 큰 제목)</span><input type="text" id="r-title" maxlength="40"></label>
+    <div class="rulegroup"><b>기본 규칙</b><span>벌금 계산에 쓰여요</span></div>
     <div class="pair">
       <label class="field"><span>주당 목표 운동일</span><input type="number" id="r-goal" min="1" max="7" inputmode="numeric"></label>
       <label class="field"><span>미달 시 벌금 (원)</span><input type="number" id="r-fine" min="0" step="1000" inputmode="numeric"></label>
     </div>
     <label class="field"><span>시작일 (이 날이 속한 주부터 계산)</span><input type="date" id="r-start"></label>
-    <label class="field"><span>벌금 사용처 / 메모</span><input type="text" id="r-note" maxlength="60" placeholder="예: 모인 벌금으로 연말 회식"></label>
+    <div class="rulegroup"><b>추가 규칙</b><span>자유롭게 추가, 수정, 삭제할 수 있어요</span></div>
+    <div class="ruleedit" id="ruleEdit"></div>
+    <button type="button" class="btn" id="addRule">+ 규칙 추가</button>
     <p class="err" id="rulesErr" hidden></p>
     <div class="sheet-foot">
       <button type="button" class="btn" data-close>취소</button>

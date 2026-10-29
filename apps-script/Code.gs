@@ -13,7 +13,8 @@ const SHEETS = {
   entries: ['id', 'memberId', 'date', 'kind', 'minutes', 'km', 'memo', 'photoId', 'hidden', 'createdAt', 'updatedAt'],
   settings: ['key', 'value'],
 };
-const DEFAULT_SETTINGS = { title: '주 3회 운동 내기', goal: '3', fine: '10000', start: '', note: '' };
+const DEFAULT_SETTINGS = { title: '주 3회 운동 내기', goal: '3', fine: '10000', start: '', note: '', rules: '[]' };
+const MAX_RULES = 20;
 const PHOTO_FOLDER_NAME = 'healthy-photos';
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024;
 
@@ -177,6 +178,10 @@ const ACTIONS = {
       fine: String(fine),
       start: s.start,
       note: String(s.note || '').trim().slice(0, 60),
+      rules: JSON.stringify((Array.isArray(s.rules) ? s.rules : [])
+        .map((r) => String(r).trim().slice(0, 80))
+        .filter(Boolean)
+        .slice(0, MAX_RULES)),
     }));
     return stateFor_(me);
   },
@@ -249,7 +254,7 @@ function stateFor_(me) {
     me: { id: me.id, name: me.name, role: me.role },
     members,
     entries,
-    settings: readSettings_(),
+    settings: settingsOut_(),
   };
 }
 
@@ -378,6 +383,15 @@ function addMember_(name, role) {
   const m = { id: 'm' + uid_(10), name, key: uid_(32), role, joinedAt: String(Date.now()), avatar: '' };
   writeRow_(sh, null, SHEETS.members.map((c) => m[c]));
   return m;
+}
+
+// 추가 규칙(rules)은 시트에 JSON 문자열로 저장하고 응답에서는 배열로 보냄
+function settingsOut_() {
+  const s = readSettings_();
+  let rules = [];
+  try { rules = JSON.parse(s.rules || '[]'); } catch (_) {}
+  s.rules = Array.isArray(rules) ? rules.map(String) : [];
+  return s;
 }
 
 function readSettings_() {
