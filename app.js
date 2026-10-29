@@ -140,6 +140,13 @@
   const selMonth = () => { const t = new Date(); return new Date(t.getFullYear(), t.getMonth() + S.monthOffset, 1); };
   const hueOf = (id) => { let h = 0; for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 360; return h; };
   const kcalIn = (list, a, b) => list.reduce((t, e) => t + (e.date >= a && e.date <= b ? Number(e.kcal) || 0 : 0), 0);
+  // 나만의 한 마디: 비어 있으면 흐린 기본 문구, 내 것은 연필 버튼으로 바로 고침
+  const PENCIL = `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><path d="M11.3 2.3a1.6 1.6 0 0 1 2.3 2.3L5.4 12.8 2.5 13.5l.7-2.9z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+  const mottoHtml = (m, cls) => {
+    const mine = S.me && m.id === S.me.id;
+    const text = (m.motto || "").trim();
+    return `<div class="motto ${cls || ""}${text ? "" : " empty"}" data-motto="${esc(m.id)}" title="${esc(text || "운동하자!")}"><span class="mtext">${esc(text || "운동하자!")}</span>${mine ? `<button type="button" class="mottoedit" data-motto-edit aria-label="한 마디 고치기">${PENCIL}</button>` : ""}</div>`;
+  };
   const nameBtn = (m) => `<button type="button" class="namebtn" data-member="${esc(m.id)}">${esc(m.name || "친구")}</button>`;
   const fmtMinutes = (n) => (n >= 60 ? `${Math.floor(n / 60)}시간${n % 60 ? ` ${n % 60}분` : ""}` : `${n}분`);
 
@@ -224,6 +231,7 @@
     } else {
       const rows = ms.map((m) => ({ m, days: daysIn(m.list, mon), mins: minutesIn(m.list, mon), kcal: kcalIn(m.list, ymd(mon), ymd(sun)), missed: missedWeeks(m) }))
         .sort((a, b) => b.days.size - a.days.size || b.mins - a.mins || String(a.m.name).localeCompare(String(b.m.name), "ko"));
+      const anyRec = rows.some((r) => r.days.size > 0);
       board.innerHTML = rows.map((r, i) => {
         const done = r.days.size;
         let chip;
@@ -241,7 +249,7 @@
           ? `<div class="owed"><span>지금까지 미달 <span class="num">${r.missed}</span>주</span><span>낼 벌금 <b>${esc(won(r.missed * c.fine))}</b></span></div>`
           : "";
         return `<div class="mcard${isMe ? " mine" : ""}">
-          <div class="mtop">${avatar(r.m)}<span class="rank">${i + 1}위</span></div>
+          <div class="mtop">${avatar(r.m)}${mottoHtml(r.m, "bubble")}${anyRec ? `<span class="rank">${i + 1}위</span>` : ""}</div>
           <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div>
           <div class="mscore"><span class="count">${done}<small>/${c.goal}일</small></span>${chip}</div>
           <div class="dots">${dots}</div>
@@ -334,6 +342,7 @@
       cal += `<div class="cday${who.length ? " has" : ""}${ds === today ? " today" : ""}${ds > today ? " future" : ""}" title="${esc(label)}" aria-label="${esc(label)}"><span class="cnum">${d}</span><span class="cdots">${dots}</span></div>`;
     }
 
+    const anyRec = rows.some((r) => r.days > 0);
     const list = rows.map((r, i) => {
       const isMe = S.me && r.m.id === S.me.id;
       const stats = r.n
@@ -342,7 +351,7 @@
           + `<span>기록 <span class="num">${r.n}</span>개</span>`
         : "<span>아직 기록 없음</span>";
       return `<div class="mcard${isMe ? " mine" : ""}">
-        <div class="mtop">${avatar(r.m)}<span class="rank">${i + 1}위</span></div>
+        <div class="mtop">${avatar(r.m)}${mottoHtml(r.m, "bubble")}${anyRec ? `<span class="rank">${i + 1}위</span>` : ""}</div>
         <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div>
         <div class="mscore"><span class="count">${r.days}<small>일</small></span></div>
         <div class="mstats">${stats}</div>
@@ -1059,7 +1068,7 @@
 
     $("#mePage").innerHTML = `
       <div class="mehead">${avatar(meM)}
-        <div class="who"><b>${esc(meM.name || "나")}</b>${facts ? `<div class="facts">${facts}</div>` : `<span class="veil-note">‘내 몸 기록 수정’에서 키·몸무게 등을 넣을 수 있어요.</span>`}</div>
+        <div class="who"><b>${esc(meM.name || "나")}</b>${mottoHtml(meM)}${facts ? `<div class="facts">${facts}</div>` : `<span class="veil-note">‘내 몸 기록 수정’에서 키·몸무게 등을 넣을 수 있어요.</span>`}</div>
         <div class="row-btns"><button type="button" class="btn" id="meEditProfile">프로필 수정</button><button type="button" class="btn" id="meEditBody">내 몸 기록 수정</button></div>
       </div>
       <section>
@@ -1095,7 +1104,7 @@
     const mins = list.reduce((s, e) => s + (Number(e.minutes) || 0), 0);
     const kcal = kcalIn(list, a, z);
     const ib = inbodyOf(id);
-    $("#mHead").innerHTML = `${avatar(m)}<b>${esc(m.name || "친구")}</b>`;
+    $("#mHead").innerHTML = `${avatar(m)}<div class="who"><b>${esc(m.name || "친구")}</b>${mottoHtml(m)}</div>`;
     $("#mBody").innerHTML = `
       <section><h4>이번 달</h4><p class="bmr">${list.length ? `운동 <b>${days}</b>일 · 총 <b>${esc(fmtMinutes(mins))}</b>${kcal ? ` · 약 <b>${kcal.toLocaleString("ko-KR")}</b>kcal` : ""}` : "이번 달 기록이 아직 없어요."}</p>${kcal ? `<p class="kcalnote">칼로리는 대략적인 추정치(±20~30%)예요.</p>` : ""}</section>
       <section><h4>공개한 정보</h4>${facts ? `<div class="facts">${facts}</div>` : `<p class="veil-note">공개한 몸 정보가 없어요.</p>`}</section>
@@ -1103,6 +1112,30 @@
     openSheet("memberSheet");
   }
   $("#mBody").addEventListener("click", (ev) => { const b = ev.target.closest('[data-ib="zoom"]'); if (b) openZoom(b.dataset.id); });
+
+  // 한 마디 고치기: 연필을 누르면 그 자리에서 입력, Enter·바깥 클릭으로 저장, Esc로 취소
+  const editingMotto = () => !!document.querySelector(".mottoinput");
+  document.addEventListener("click", (ev) => {
+    const b = ev.target.closest("[data-motto-edit]"); if (!b) return;
+    const box = b.closest(".motto"); if (box.querySelector(".mottoinput")) return;
+    const cur = (S.members.find((m) => S.me && m.id === S.me.id) || {}).motto || "";
+    box.innerHTML = `<input class="mottoinput" type="text" maxlength="40" placeholder="운동하자!" aria-label="나만의 한 마디">`;
+    const input = box.querySelector("input");
+    input.value = cur; input.focus(); input.select();
+    let done = false;
+    const finish = async (save) => {
+      if (done) return; done = true;
+      const v = input.value.replace(/\s+/g, " ").trim();
+      if (!save || v === cur) { render(); return; }
+      try { apply(await api("setMotto", { motto: v })); toast(v ? "한 마디를 바꿨어요" : "기본 문구로 돌아갔어요"); }
+      catch (e) { toast(errText(e)); render(); }
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      if (e.key === "Escape") { e.stopPropagation(); finish(false); }
+    });
+    input.addEventListener("blur", () => finish(true));
+  });
 
   // ---------- page events ----------
   $("#prev").addEventListener("click", () => { if (S.view === "week") S.weekOffset--; else S.monthOffset--; render(); });
@@ -1179,6 +1212,6 @@
   $("#app").hidden = false;
   load();
   // 친구들의 새 기록을 가져오려고 1분마다, 그리고 다시 화면에 돌아왔을 때 새로고침
-  setInterval(() => { if (KEY && document.visibilityState === "visible" && !anySheetOpen()) load(); }, 60000);
-  document.addEventListener("visibilitychange", () => { if (KEY && document.visibilityState === "visible" && S.loaded && !anySheetOpen()) load(); });
+  setInterval(() => { if (KEY && document.visibilityState === "visible" && !anySheetOpen() && !editingMotto()) load(); }, 60000);
+  document.addEventListener("visibilitychange", () => { if (KEY && document.visibilityState === "visible" && S.loaded && !anySheetOpen() && !editingMotto()) load(); });
 })();

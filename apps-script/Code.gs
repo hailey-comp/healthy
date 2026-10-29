@@ -9,7 +9,7 @@
  */
 
 const SHEETS = {
-  members: ['id', 'name', 'key', 'role', 'joinedAt', 'avatar', 'height', 'weight', 'birthYear', 'sex', 'bodyPub'],
+  members: ['id', 'name', 'key', 'role', 'joinedAt', 'avatar', 'height', 'weight', 'birthYear', 'sex', 'bodyPub', 'motto'],
   entries: ['id', 'memberId', 'date', 'kind', 'minutes', 'km', 'memo', 'photoId', 'hidden', 'createdAt', 'updatedAt', 'intensity'],
   settings: ['key', 'value'],
   inbody: ['id', 'memberId', 'date', 'weight', 'muscle', 'fatMass', 'fatPct', 'bmi', 'bmr', 'score', 'photoId', 'public', 'createdAt', 'updatedAt', 'pubFields'],
@@ -204,6 +204,19 @@ const ACTIONS = {
   },
 
   // --- 몸 정보와 인바디 (항목·기록마다 공개 여부를 정함, 기본은 나만 보기) ---
+  // 멤버 카드에 보이는 나만의 한 마디 (빈칸이면 기본 문구가 보임)
+  setMotto: (me, req) => {
+    const motto = String(req.motto || '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    withLock_(() => {
+      const t = table_('members');
+      const r = t.rows.find((m) => m.id === me.id);
+      const row = SHEETS.members.map((c) => r[c]);
+      row[SHEETS.members.indexOf('motto')] = motto;
+      writeRow_(t.sh, r._row, row);
+    });
+    return stateFor_(me);
+  },
+
   saveBody: (me, req) => {
     const src = req.body || {};
     const vals = {};
@@ -317,7 +330,7 @@ const ACTIONS = {
 // ---------------------------------------------------------------------------
 function stateFor_(me) {
   const memberRows = table_('members').rows;
-  const members = memberRows.map((m) => ({ id: m.id, name: m.name, joinedAt: Number(m.joinedAt) || 0, avatar: m.avatar || '', admin: m.role === 'admin' }));
+  const members = memberRows.map((m) => ({ id: m.id, name: m.name, joinedAt: Number(m.joinedAt) || 0, avatar: m.avatar || '', admin: m.role === 'admin', motto: m.motto || '' }));
   const ids = {};
   members.forEach((m) => (ids[m.id] = true));
   const inbodyRows = table_('inbody').rows.filter((r) => ids[r.memberId] && isDate_(r.date));

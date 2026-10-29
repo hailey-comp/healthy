@@ -99,10 +99,12 @@ img.avatar { object-fit: cover; }
 
 /* Member cards: horizontal strip, swipe on phones */
 .mstrip { display: flex; gap: 10px; overflow-x: auto; padding: 14px 16px; scroll-snap-type: x proximity; scroll-padding-inline: 16px; overscroll-behavior-x: contain; }
-.mcard { flex: 1 0 168px; max-width: 240px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); min-width: 0; }
+.mcard { flex: 1 0 186px; max-width: 240px; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); min-width: 0; }
 .mcard.mine { border-color: var(--accent); }
-.mcard .mtop { display: flex; justify-content: space-between; align-items: flex-start; }
-.mcard .rank { display: block; font-family: var(--font-num); font-size: 13px; color: var(--muted); text-align: right; }
+.mcard .mtop { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.mcard .mtop .avatar { flex: none; width: 34px; height: 34px; font-size: 14px; }
+.mcard .mtop .rank { flex: none; }
+.mcard .rank { display: block; font-family: var(--font-num); font-size: 12px; color: var(--muted); text-align: right; }
 .mstrip::after { content: ""; flex: 0 0 6px; }
 @media (min-width: 640px) { .mcard { flex-basis: 148px; } }
 .mcard .name { display: flex; align-items: baseline; gap: 4px; min-width: 0; font-weight: 700; }
@@ -114,6 +116,18 @@ img.avatar { object-fit: cover; }
 .mcard .dot { height: 16px; }
 .mcard .owed { display: flex; flex-direction: column; gap: 0; font-size: 12px; color: var(--muted); }
 .mcard .mstats { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+/* 나만의 한 마디 */
+.motto { display: flex; align-items: flex-start; gap: 4px; font-size: 13px; color: var(--ink); min-width: 0; }
+.motto .mtext { min-width: 0; word-break: keep-all; overflow-wrap: anywhere; }
+.motto.empty .mtext { color: var(--muted); opacity: .75; }
+.motto.bubble { flex: 1; align-self: center; font-size: 12px; line-height: 1.35; position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 4px 4px 4px 8px; }
+.motto.bubble::before { content: ""; position: absolute; left: -5px; top: 50%; width: 8px; height: 8px; background: var(--surface); border-left: 1px solid var(--line); border-bottom: 1px solid var(--line); transform: translateY(-50%) rotate(45deg); }
+.motto.bubble .mtext { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.mottoedit { flex: none; background: none; border: 0; padding: 1px; margin-left: auto; color: var(--muted); border-radius: 4px; line-height: 0; cursor: pointer; }
+.mottoedit:hover { color: var(--accent); background: var(--accent-soft); }
+.mottoinput { width: 100%; min-width: 0; font: inherit; font-size: 13px; border: 1.5px solid var(--accent); background: var(--surface); border-radius: 6px; padding: 2px 6px; }
+.mhead .who { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+
 .kcalnote { margin: 8px 2px 0; font-size: 12px; color: var(--muted); }
 .mbody .kcalnote { margin: 0; }
 
