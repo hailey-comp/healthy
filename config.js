@@ -1,0 +1,5 @@
+// Apps Script 웹 앱을 배포한 뒤 받은 주소(…/exec)를 apiUrl에 넣어주세요.
+// 이 주소는 비밀이 아니에요. 모든 요청은 친구별 링크에 담긴 키로 확인합니다.
+window.HEALTHY_CONFIG = {
+  apiUrl: "",
+};

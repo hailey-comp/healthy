@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>땀내기 운동 장부</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- 초대 링크 없이 들어왔을 때 -->
+<main class="gate" id="gate" hidden>
+  <div class="gate-box">
+    <div class="eyebrow">땀내기 운동 장부</div>
+    <h1 id="gateTitle">초대받은 링크로 들어와 주세요</h1>
+    <p id="gateText">이 페이지는 초대받은 사람만 볼 수 있어요. 단톡방에서 받은 본인 링크를 다시 눌러주세요.</p>
+  </div>
+</main>
+
+<div class="wrap" id="app" hidden>
+  <header class="top">
+    <div class="eyebrow">친구들과 운동 내기</div>
+    <h1 id="title">주 3회 운동 내기</h1>
+    <div class="rules" id="rules"></div>
+  </header>
+
+  <nav class="weeknav" aria-label="주 선택">
+    <button id="prev" type="button" aria-label="이전 주">‹</button>
+    <div class="label"><b id="weekTitle">이번 주</b><span id="weekRange" class="num"></span></div>
+    <button id="next" type="button" aria-label="다음 주">›</button>
+  </nav>
+
+  <section>
+    <h2>순위표 <small>요일별 운동한 날</small></h2>
+    <div class="board" id="board">
+      <div class="empty"><strong>기록을 불러오는 중이에요</strong>참가한 친구들의 이번 주 운동일이 여기에 표시돼요.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>운동 기록 <small id="feedCount"></small></h2>
+    <div class="tabs">
+      <button type="button" class="tab" id="tabAll" aria-pressed="true">전체</button>
+      <button type="button" class="tab" id="tabMine" aria-pressed="false">내 기록</button>
+    </div>
+    <div class="feed" id="feed"></div>
+  </section>
+
+  <footer class="foot">
+    <span id="meLine"></span>
+    <button type="button" class="linkbtn" id="rename">이름 변경</button>
+    <button type="button" class="linkbtn" id="manage" hidden>참가자 관리</button>
+    <button type="button" class="linkbtn" id="signout">이 기기에서 나가기</button>
+  </footer>
+</div>
+
+<button class="fab" id="fab" type="button" hidden>+ 기록하기</button>
+
+<!-- 기록 작성/수정 -->
+<div class="scrim" id="entrySheet" hidden>
+  <form class="sheet" id="entryForm" novalidate>
+    <h3 id="entryTitle">운동 기록하기</h3>
+    <div class="pair">
+      <label class="field"><span>날짜</span><input type="date" id="f-date" required></label>
+      <label class="field"><span>운동 시간 (분)</span><input type="number" id="f-min" min="1" max="1440" inputmode="numeric" placeholder="45"></label>
+    </div>
+    <div class="field">
+      <span>종목</span>
+      <div class="kinds" id="kindChips"></div>
+      <input type="text" id="f-kind" maxlength="30" placeholder="직접 입력 (예: 클라이밍)">
+    </div>
+    <label class="field"><span>거리 (km, 선택)</span><input type="number" id="f-km" min="0" step="0.1" inputmode="decimal" placeholder="5.0"></label>
+    <label class="field"><span>메모</span><textarea id="f-memo" maxlength="1000" placeholder="오늘 어땠는지 자유롭게 적어주세요"></textarea></label>
+    <div class="field">
+      <span>사진</span>
+      <div class="drop">
+        <img id="f-preview" alt="첨부한 사진 미리보기" hidden>
+        <div class="row-btns">
+          <label class="btn" for="f-photo" id="pickLabel">사진 선택</label>
+          <button type="button" class="btn" id="removePhoto" hidden>사진 빼기</button>
+        </div>
+        <input type="file" id="f-photo" accept="image/*" hidden>
+        <small class="veil-note">인증샷이나 운동 앱 캡처를 올려보세요. 큰 사진은 자동으로 줄여서 올려요.</small>
+      </div>
+    </div>
+    <label class="check"><input type="checkbox" id="f-hidden"><span>친구들에게 사진·메모 숨기기<small>운동한 날과 종목은 순위표에 그대로 반영돼요.</small></span></label>
+    <p class="err" id="entryErr" hidden></p>
+    <div class="sheet-foot">
+      <button type="button" class="btn" data-close>취소</button>
+      <button type="submit" class="btn primary" id="entrySave">저장</button>
+    </div>
+  </form>
+</div>
+
+<!-- 이름 변경 -->
+<div class="scrim" id="nameSheet" hidden>
+  <form class="sheet" id="nameForm" novalidate>
+    <h3>이름 변경</h3>
+    <label class="field"><span>순위표에 보일 이름</span><input type="text" id="n-name" maxlength="20" required></label>
+    <p class="err" id="nameErr" hidden></p>
+    <div class="sheet-foot">
+      <button type="button" class="btn" data-close>취소</button>
+      <button type="submit" class="btn primary">저장</button>
+    </div>
+  </form>
+</div>
+
+<!-- 내기 규칙 (관리자) -->
+<div class="scrim" id="rulesSheet" hidden>
+  <form class="sheet" id="rulesForm" novalidate>
+    <h3>내기 규칙</h3>
+    <label class="field"><span>내기 이름</span><input type="text" id="r-title" maxlength="40"></label>
+    <div class="pair">
+      <label class="field"><span>주당 목표 운동일</span><input type="number" id="r-goal" min="1" max="7" inputmode="numeric"></label>
+      <label class="field"><span>미달 시 벌금 (원)</span><input type="number" id="r-fine" min="0" step="1000" inputmode="numeric"></label>
+    </div>
+    <label class="field"><span>시작일 (이 날이 속한 주부터 계산)</span><input type="date" id="r-start"></label>
+    <label class="field"><span>벌금 사용처 / 메모</span><input type="text" id="r-note" maxlength="60" placeholder="예: 모인 벌금으로 연말 회식"></label>
+    <p class="err" id="rulesErr" hidden></p>
+    <div class="sheet-foot">
+      <button type="button" class="btn" data-close>취소</button>
+      <button type="submit" class="btn primary">규칙 저장</button>
+    </div>
+  </form>
+</div>
+
+<!-- 참가자 관리 (관리자) -->
+<div class="scrim" id="manageSheet" hidden>
+  <div class="sheet">
+    <h3>참가자 관리</h3>
+    <p class="veil-note">친구마다 링크가 달라요. 링크가 곧 그 사람의 출입증이니 본인에게만 보내주세요. 링크가 새어 나가면 ‘재발급’으로 예전 링크를 막을 수 있어요.</p>
+    <div class="roster" id="roster"><div class="empty">불러오는 중…</div></div>
+    <form class="addrow" id="addForm" novalidate>
+      <label class="field"><span>친구 추가</span><input type="text" id="a-name" maxlength="20" placeholder="이름"></label>
+      <button type="submit" class="btn primary">추가</button>
+    </form>
+    <p class="err" id="manageErr" hidden></p>
+    <div class="sheet-foot"><button type="button" class="btn" data-close>닫기</button></div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" hidden><img id="lightImg" alt="운동 사진 크게 보기"></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
