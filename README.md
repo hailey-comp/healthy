@@ -1,4 +1,4 @@
-# 땀내기 운동 장부
+# JJJ Health Girl
 
 친구들과 운동 기록을 남기고 주간 목표 내기를 하는 웹페이지예요.
 
@@ -28,7 +28,7 @@
 
 ### 1. 구글 시트와 Apps Script
 
-1. [Google 시트](https://sheets.new)에서 새 시트를 만들고 이름을 정해요 (예: `땀내기 장부`).
+1. [Google 시트](https://sheets.new)에서 새 시트를 만들고 이름을 정해요 (예: `JJJ Health Girl`).
 2. 메뉴 **확장 프로그램 → Apps Script**를 열어요.
 3. 기본으로 있는 `Code.gs` 내용을 모두 지우고, 이 저장소의 [`apps-script/Code.gs`](apps-script/Code.gs) 내용을 붙여넣은 뒤 저장해요.
 4. 왼쪽 **⚙ 프로젝트 설정 → 시간대**를 `(GMT+09:00) 서울`로 바꿔요.

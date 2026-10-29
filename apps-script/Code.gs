@@ -1,5 +1,5 @@
 /**
- * 땀내기 운동 장부 — Google Apps Script 백엔드
+ * JJJ Health Girl — Google Apps Script 백엔드
  *
  * 구글 시트에서 [확장 프로그램 → Apps Script]를 열고 이 파일 내용을 붙여넣어 사용합니다.
  * 설치 순서는 저장소의 README.md를 보세요.

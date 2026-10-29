@@ -16,15 +16,8 @@
   --font-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0D131A; --surface: #161F29; --ink: #E6ECF2; --muted: #92A0AE; --line: #283442;
-    --accent: #8AA2FF; --accent-ink: #0D131A; --accent-soft: #1D2850;
-    --good: #5CCF8B; --good-soft: #15301F; --bad: #FF7F72; --bad-soft: #3A1B18;
-    --scrim: rgba(0, 0, 0, .65); color-scheme: dark;
-  }
+  /* 기기가 다크 모드여도 항상 밝은 테마로 보여줌 */
+  color-scheme: light only;
 }
 
 * { box-sizing: border-box; }

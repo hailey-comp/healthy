@@ -141,7 +141,7 @@
     const isAdmin = S.me && S.me.role === "admin";
 
     // header
-    document.title = c.title + " · 땀내기 운동 장부";
+    document.title = c.title + " · JJJ Health Girl";
     $("#title").textContent = c.title;
     const pot = ms.reduce((t, m) => t + missedWeeks(m) * c.fine, 0);
     const startD = parseYmd(c.start);
