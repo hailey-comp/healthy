@@ -37,7 +37,10 @@
 
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div class="eyebrow">JJJ Healthy Girl <span class="sync" id="syncNote" hidden>최신 기록 확인 중…</span></div>
+    <div class="toprow">
+      <div class="eyebrow">JJJ Healthy Girl <span class="sync" id="syncNote" hidden>최신 기록 확인 중…</span></div>
+      <button type="button" class="guidebtn" id="openGuide"><span class="q" aria-hidden="true">?</span>사용 가이드<span class="newdot" id="guideDot" hidden></span></button>
+    </div>
     <h1 id="title">주 3회 운동 내기</h1>
     <div class="rules" id="rules"></div>
     <ol class="rulelist" id="ruleList" hidden></ol>
@@ -259,6 +262,118 @@
       <button type="submit" class="btn primary" id="ibSave">저장</button>
     </div>
   </form>
+</div>
+
+<!-- 사용 가이드 -->
+<div class="scrim" id="guideSheet" hidden>
+  <div class="sheet guide">
+    <h3>사용 가이드</h3>
+    <p class="veil-note">궁금한 주제를 눌러 펼쳐보세요.</p>
+
+    <details open>
+      <summary>처음 들어왔을 때</summary>
+      <ul>
+        <li>받은 <b>개인 링크</b>로 한 번 들어오면 이 기기에 저장돼서, 다음부터는 <b>hailey-comp.github.io/healthy</b> 주소만 열어도 들어와져요.</li>
+        <li>카톡에서 링크를 열었다면 오른쪽 위 메뉴 → <b>다른 브라우저로 열기</b>로 사파리나 크롬에서 열어주세요. 카톡 안 브라우저와 사파리·크롬은 저장 공간이 따로라서요.</li>
+        <li>열린 화면에서 <b>홈 화면에 추가</b>를 해두면 앱처럼 쓸 수 있어요. (아이폰: 공유 버튼 → 홈 화면에 추가 / 안드로이드: 크롬 메뉴 → 홈 화면에 추가)</li>
+        <li>맨 아래 <b>프로필 수정</b>에서 이름과 프로필 사진을 정해주세요.</li>
+        <li>개인 링크는 나만의 출입증이에요. 다른 사람에게 보내지 말고, 카톡 <b>나와의 채팅</b>에 저장해 두세요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>운동 기록하기</summary>
+      <ul>
+        <li>오른쪽 아래 <b>+ 기록하기</b> → 날짜, 종목, 운동 시간, 거리(선택), 메모, 사진을 넣고 저장해요.</li>
+        <li><b>강도</b>(가볍게·보통·힘들게)는 칼로리 추정에 쓰여요. 러닝·걷기·자전거는 거리를 적으면 속도로 계산해요.</li>
+        <li>내 기록 카드의 <b>수정 / 숨기기 / 삭제</b>로 고칠 수 있어요. 삭제는 한 번 더 눌러야 지워져요.</li>
+        <li><b>숨기기</b>를 하면 사진과 메모가 친구들에게 안 보여요. 운동한 날과 종목은 그대로 인정돼요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>내기 규칙과 벌금</summary>
+      <ul>
+        <li>지금 규칙: 일주일(월~일)에 <b data-g="goal">3</b>일 이상 운동하기. 못 채운 주마다 벌금 <b data-g="fine">₩10,000</b>.</li>
+        <li>하루에 여러 번 기록해도 운동한 날은 <b>하루</b>로 세요.</li>
+        <li>지난주를 못 채웠다면 멤버 카드에 <b>낼 벌금</b>이 나타나요. 맨 위 <b>모인 벌금</b>은 모두의 벌금 합계예요.</li>
+        <li>추가 규칙은 제목 아래 번호 목록에 있어요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>화면 보는 법 (주간 · 월별 · 내 페이지)</summary>
+      <ul>
+        <li><b>주간</b>: 멤버 카드에 이번 주 요일별 운동한 날, 목표까지 남은 날, 칼로리 합계가 보여요. ‹ › 로 지난 주를 볼 수 있어요.</li>
+        <li><b>월별</b>: 달력의 색 점이 그날 운동한 멤버예요. 아래 카드에서 한 달 합계를 봐요.</li>
+        <li><b>내 페이지</b>: 내 운동 요약, 업적, 최근 12주 그래프, 종목별 시간, 인바디 변화를 한눈에 봐요. 그래프 막대나 점을 누르면 정확한 값이 나와요.</li>
+        <li>멤버 카드에서 <b>친구 이름</b>을 누르면 그 친구의 업적과 공개한 정보를 볼 수 있어요.</li>
+        <li>멤버 카드는 옆으로 밀면 더 보여요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>레벨 · 업적 · 한 마디</summary>
+      <ul>
+        <li>프로필 옆 <b>Lv.</b>은 레벨, 동그란 메달은 얻은 업적이에요. 메달 색은 <b>브론즈 → 실버 → 골드</b> 순서예요.</li>
+        <li>경험치: 운동한 날 10XP, 주간 목표 달성 30XP, 업적 단계마다 50XP.</li>
+        <li>업적은 9가지예요. 목표 연속 달성, 매일 운동한 주, 연속 운동, 누적 운동일·시간·거리·칼로리, 다양한 종목, 주말 전사. 다음 단계까지 얼마 남았는지는 <b>내 페이지 → 업적</b>에서 봐요.</li>
+        <li>이름 옆 흐린 글씨는 <b>나만의 한 마디</b>예요. 내 카드의 연필(✎)을 눌러 바꾸고 Enter로 저장해요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>내 몸 기록 · 인바디 · 공개 범위</summary>
+      <ul>
+        <li>맨 아래 <b>내 몸 기록</b>(또는 내 페이지)에서 키·몸무게·출생 연도·성별과 인바디 측정값을 남겨요.</li>
+        <li>모든 정보는 기본이 <b>나만 보기</b>예요. 친구들에게 보여주고 싶은 항목만 <b>공개</b>를 체크해요.</li>
+        <li>저장하기 전에 무엇이 공개되고 무엇이 나만 보이는지 <b>확인창</b>이 떠요.</li>
+        <li>나만 보기 정보는 구글 백업 시트에 저장되고 관리자만 볼 수 있어요.</li>
+        <li>키를 넣어두면 인바디 체중을 입력할 때 BMI가 자동으로 채워져요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>칼로리는 어떻게 계산되나요?</summary>
+      <ul>
+        <li>운동 강도 지수(MET) × 몸무게 × 운동 시간으로 계산해요. 몸무게를 넣어야 칼로리가 나와요.</li>
+        <li>몸무게는 그날 기준 가장 최근 인바디 체중, 없으면 내 몸 기록의 몸무게를 써요.</li>
+        <li>몸무게는 친구들에게 보내지 않고, 계산된 <b>칼로리 숫자만</b> 보여요.</li>
+        <li>칼로리는 대략적인 추정치(±20~30%)예요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>테마 바꾸기</summary>
+      <ul>
+        <li>맨 아래 <b>테마</b> 또는 내 페이지의 <b>테마</b>에서 블루·체리 핑크·민트·라벤더·레몬·다크 나이트 중 골라요.</li>
+        <li>고른 테마는 그 기기에만 적용돼요.</li>
+      </ul>
+    </details>
+
+    <details>
+      <summary>문제가 생겼을 때</summary>
+      <ul>
+        <li><b>“초대받은 링크로 들어와 주세요”</b>가 나오면: 다른 기기·브라우저이거나 기록을 지운 경우예요. 개인 링크를 다시 눌러주세요.</li>
+        <li><b>“링크가 더 이상 유효하지 않아요”</b>가 나오면: 링크가 재발급됐어요. 관리자에게 새 링크를 받아주세요.</li>
+        <li>화면이 예전 그대로면: 새로고침(PC는 Ctrl+Shift+R)을 해보세요.</li>
+        <li>저장에 1~2초 걸리는 건 정상이에요. 열 때는 저장된 기록을 먼저 보여주고, 제목 위 “최신 기록 확인 중…”이 사라지면 최신이에요.</li>
+      </ul>
+    </details>
+
+    <details class="adminonly" hidden>
+      <summary>관리자 기능</summary>
+      <ul>
+        <li><b>참가자 관리</b>(맨 아래): 친구 추가 → <b>링크 복사</b>로 개인톡에 보내요. 링크가 새면 <b>재발급</b>, 빠지는 사람은 <b>내보내기</b>.</li>
+        <li><b>규칙 수정</b>(맨 위): 내기 이름(큰 제목), 주당 목표, 벌금, 시작일, 추가 규칙을 바꿔요.</li>
+        <li>다른 사람 기록 카드의 <b>관리자 삭제</b>로 잘못된 기록을 지울 수 있어요.</li>
+        <li>모든 기록은 구글 시트에 있어요. 시트에서 직접 고쳐도 되고, 행을 지우거나 추가한 건 최대 5분 뒤 반영돼요.</li>
+        <li>Code.gs를 고친 뒤에는 <b>배포 관리 → 새 버전</b>으로 배포해야 반영돼요.</li>
+      </ul>
+    </details>
+
+    <div class="sheet-foot"><button type="button" class="btn primary" data-close>닫기</button></div>
+  </div>
 </div>
 
 <!-- 테마 고르기 (이 기기에만 저장) -->

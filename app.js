@@ -1266,6 +1266,19 @@
     input.addEventListener("blur", () => finish(true));
   });
 
+  // 사용 가이드: 현재 규칙 숫자를 채워서 보여주고, 처음 한 번은 버튼에 점 표시
+  const GUIDE_SEEN = "healthy.guideSeen";
+  try { $("#guideDot").hidden = !!localStorage.getItem(GUIDE_SEEN); } catch (_) { $("#guideDot").hidden = true; }
+  $("#openGuide").addEventListener("click", () => {
+    const c = cfg();
+    document.querySelectorAll('#guideSheet [data-g="goal"]').forEach((el) => (el.textContent = c.goal));
+    document.querySelectorAll('#guideSheet [data-g="fine"]').forEach((el) => (el.textContent = won(c.fine)));
+    document.querySelectorAll("#guideSheet .adminonly").forEach((el) => (el.hidden = !(S.me && S.me.role === "admin")));
+    $("#guideDot").hidden = true;
+    try { localStorage.setItem(GUIDE_SEEN, "1"); } catch (_) {}
+    openSheet("guideSheet");
+  });
+
   // 테마: 기기마다 저장, 색은 style.css의 [data-skin] 토큰
   const SKINS = [
     ["", "블루", "#EBEFF3", "#2147D6"], ["cherry", "체리 핑크", "#FBEFF3", "#D6336C"], ["mint", "민트", "#E9F5F0", "#0E8565"],

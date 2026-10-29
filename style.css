@@ -143,6 +143,19 @@ img.avatar { object-fit: cover; }
 .mottoedit:hover { color: var(--accent); background: var(--accent-soft); }
 .mottoinput { width: 100%; min-width: 0; font: inherit; font-size: 13px; border: 1.5px solid var(--accent); background: var(--surface); color: var(--ink); border-radius: 6px; padding: 2px 6px; }
 .mhead .who { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
+.toprow { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.guidebtn { position: relative; display: inline-flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 12px 4px 5px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; }
+.guidebtn:hover { border-color: var(--accent); color: var(--accent); }
+.guidebtn .q { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.guidebtn .newdot { position: absolute; top: -2px; right: -2px; width: 9px; height: 9px; border-radius: 50%; background: var(--bad); box-shadow: 0 0 0 2px var(--bg); }
+.guide details { border: 1px solid var(--line); border-radius: 12px; padding: 0 14px; }
+.guide details[open] { padding-bottom: 10px; }
+.guide summary { cursor: pointer; font-weight: 700; padding: 12px 0; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.guide summary::-webkit-details-marker { display: none; }
+.guide summary::after { content: "+"; font-family: var(--font-num); color: var(--muted); font-size: 18px; line-height: 1; }
+.guide details[open] summary::after { content: "−"; }
+.guide ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.6; }
+.guide ul b { color: var(--accent); font-weight: 700; }
 .sync { font-size: 11px; letter-spacing: 0; color: var(--accent); margin-left: 6px; }
 
 /* 업적 메달과 레벨 */
