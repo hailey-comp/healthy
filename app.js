@@ -235,15 +235,18 @@
         const owed = r.missed && c.fine > 0
           ? `<div class="owed"><span>지금까지 미달 <span class="num">${r.missed}</span>주</span><span>낼 벌금 <b>${esc(won(r.missed * c.fine))}</b></span></div>`
           : "";
-        return `<div class="row">
-          <div class="rank">${i + 1}</div>
-          ${avatar(r.m)}
-          <div class="who"><div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div><div class="dots">${dots}</div></div>
-          <div class="score"><div class="count">${done}<small>/${c.goal}일</small></div>${chip}${r.kcal ? `<span class="kcalsum">약 ${r.kcal.toLocaleString("ko-KR")}kcal</span>` : ""}</div>
+        return `<div class="mcard${isMe ? " mine" : ""}">
+          <div class="mtop">${avatar(r.m)}<span class="rank">${i + 1}위</span></div>
+          <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div>
+          <div class="mscore"><span class="count">${done}<small>/${c.goal}일</small></span>${chip}</div>
+          <div class="dots">${dots}</div>
+          ${r.kcal ? `<span class="kcalsum">약 ${r.kcal.toLocaleString("ko-KR")}kcal</span>` : ""}
           ${owed}
         </div>`;
       }).join("");
+      board.innerHTML = `<div class="mstrip">${board.innerHTML}</div>`;
     }
+    $("#boardKcalNote").hidden = !ms.some((m) => kcalIn(m.list, rangeA, rangeB) > 0);
 
     // feed
     const a = rangeA, b = rangeB;
@@ -252,6 +255,7 @@
     if (S.mineOnly && S.me) entries = entries.filter((e) => e.memberId === S.me.id);
     entries.sort((x, y) => y.date.localeCompare(x.date) || (Number(y.createdAt) || 0) - (Number(x.createdAt) || 0));
     $("#feedCount").textContent = `${entries.length}개`;
+    $("#feedKcalNote").hidden = !entries.some((e) => e.kcal > 0);
     const feed = $("#feed");
     if (!entries.length) {
       feed.innerHTML = `<div class="card veiled"><div class="empty"><strong>${isWeek ? (isCurrent ? "이번 주" : "이 주") : (isCurrent ? "이번 달" : "이 달")} 기록이 아직 없어요</strong>운동하고 ‘+ 기록하기’로 날짜, 종목, 시간, 사진을 남기면 여기에 쌓여요.</div></div>`;
@@ -328,16 +332,18 @@
     const list = rows.map((r, i) => {
       const isMe = S.me && r.m.id === S.me.id;
       const stats = r.n
-        ? `총 <span class="num">${esc(fmtMinutes(r.mins))}</span>${r.km ? ` · <span class="num">${r.km}</span>km` : ""}${r.kcal ? ` · 약 <span class="num">${r.kcal.toLocaleString("ko-KR")}</span>kcal` : ""} · 기록 <span class="num">${r.n}</span>개`
-        : "아직 기록 없음";
-      return `<div class="row">
-        <div class="rank">${i + 1}</div>
-        ${avatar(r.m)}
-        <div class="who"><div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div><div class="mstats">${stats}</div></div>
-        <div class="score"><div class="count">${r.days}<small>일</small></div></div>
+        ? `<span>총 <span class="num">${esc(fmtMinutes(r.mins))}</span>${r.km ? ` · <span class="num">${r.km}</span>km` : ""}</span>`
+          + (r.kcal ? `<span>약 <span class="num">${r.kcal.toLocaleString("ko-KR")}</span>kcal</span>` : "")
+          + `<span>기록 <span class="num">${r.n}</span>개</span>`
+        : "<span>아직 기록 없음</span>";
+      return `<div class="mcard${isMe ? " mine" : ""}">
+        <div class="mtop">${avatar(r.m)}<span class="rank">${i + 1}위</span></div>
+        <div class="name">${nameBtn(r.m)}${isMe ? `<span class="me">나</span>` : ""}</div>
+        <div class="mscore"><span class="count">${r.days}<small>일</small></span></div>
+        <div class="mstats">${stats}</div>
       </div>`;
     }).join("");
-    return `<div class="cal">${cal}</div>${list}`;
+    return `<div class="cal">${cal}</div><div class="mstrip">${list}</div>`;
   }
 
   let toastTimer;
@@ -678,7 +684,7 @@
   function privacyNotes(includesWeight) {
     const notes = [];
     if (includesWeight) notes.push("몸무게는 운동 칼로리 계산에 쓰여요. 몸무게를 공개하지 않아도 칼로리 숫자는 친구들에게 보여요.");
-    if (!S.me || S.me.role !== "admin") notes.push(`${adminName()}(관리자)는 구글 시트에서 나만 보기 정보도 볼 수 있어요.`);
+    notes.push("나만 보기 정보는 구글 백업 시트에 저장되고 관리자만 볼 수 있어요.");
     return notes;
   }
 
@@ -924,7 +930,7 @@
     const ib = inbodyOf(id);
     $("#mHead").innerHTML = `${avatar(m)}<b>${esc(m.name || "친구")}</b>`;
     $("#mBody").innerHTML = `
-      <section><h4>이번 달</h4><p class="bmr">${list.length ? `운동 <b>${days}</b>일 · 총 <b>${esc(fmtMinutes(mins))}</b>${kcal ? ` · 약 <b>${kcal.toLocaleString("ko-KR")}</b>kcal` : ""}` : "이번 달 기록이 아직 없어요."}</p></section>
+      <section><h4>이번 달</h4><p class="bmr">${list.length ? `운동 <b>${days}</b>일 · 총 <b>${esc(fmtMinutes(mins))}</b>${kcal ? ` · 약 <b>${kcal.toLocaleString("ko-KR")}</b>kcal` : ""}` : "이번 달 기록이 아직 없어요."}</p>${kcal ? `<p class="kcalnote">칼로리는 대략적인 추정치(±20~30%)예요.</p>` : ""}</section>
       <section><h4>공개한 정보</h4>${facts ? `<div class="facts">${facts}</div>` : `<p class="veil-note">공개한 몸 정보가 없어요.</p>`}</section>
       <section><h4>인바디</h4>${ib.length ? trendHtml(ib) + `<div class="iblist">${[...ib].reverse().map((r) => inbodyItem(r, false)).join("")}</div>` : `<p class="veil-note">공개한 인바디 기록이 없어요.</p>`}</section>`;
     openSheet("memberSheet");

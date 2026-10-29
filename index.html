@@ -58,6 +58,7 @@
     <div class="board" id="board">
       <div class="empty"><strong>기록을 불러오는 중이에요</strong>참가한 친구들의 이번 주 운동일이 여기에 표시돼요.</div>
     </div>
+    <p class="kcalnote" id="boardKcalNote" hidden>칼로리는 대략적인 추정치(±20~30%)예요.</p>
   </section>
 
   <section>
@@ -66,6 +67,7 @@
       <button type="button" class="tab" id="tabAll" aria-pressed="true">전체</button>
       <button type="button" class="tab" id="tabMine" aria-pressed="false">내 기록</button>
     </div>
+    <p class="kcalnote" id="feedKcalNote" hidden>칼로리는 대략적인 추정치(±20~30%)예요.</p>
     <div class="feed" id="feed"></div>
   </section>
 
@@ -114,7 +116,7 @@
         <button type="button" data-v="normal" aria-pressed="true">보통</button>
         <button type="button" data-v="hard" aria-pressed="false">힘들게</button>
       </div>
-      <small class="veil-note">칼로리 추정에 써요. 러닝·걷기·자전거는 거리를 적으면 속도로 계산해요.</small>
+      <small class="veil-note">칼로리 추정에 써요. 러닝·걷기·자전거는 거리를 적으면 속도로 계산해요. 칼로리는 대략적인 추정치(±20~30%)예요.</small>
     </div>
     <label class="check"><input type="checkbox" id="f-hidden"><span>친구들에게 사진·메모 숨기기<small>운동한 날과 종목은 멤버 현황에 그대로 반영돼요.</small></span></label>
     <p class="err" id="entryErr" hidden></p>
