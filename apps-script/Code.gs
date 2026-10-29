@@ -1,5 +1,5 @@
 /**
- * JJJ Health Girl — Google Apps Script 백엔드
+ * JJJ Healthy Girl — Google Apps Script 백엔드
  *
  * 구글 시트에서 [확장 프로그램 → Apps Script]를 열고 이 파일 내용을 붙여넣어 사용합니다.
  * 설치 순서는 저장소의 README.md를 보세요.
@@ -9,7 +9,7 @@
  */
 
 const SHEETS = {
-  members: ['id', 'name', 'key', 'role', 'joinedAt'],
+  members: ['id', 'name', 'key', 'role', 'joinedAt', 'avatar'],
   entries: ['id', 'memberId', 'date', 'kind', 'minutes', 'km', 'memo', 'photoId', 'hidden', 'createdAt', 'updatedAt'],
   settings: ['key', 'value'],
 };
@@ -126,6 +126,32 @@ const ACTIONS = {
     return stateFor_(me);
   },
 
+  // 이름과 프로필 사진을 함께 바꿈. 사진을 안 바꿀 때는 rename을 써도 됨
+  updateProfile: (me, req) => {
+    const name = cleanName_(req.name);
+    const newPhoto = req.photo && req.photo.data ? savePhoto_(me, req.photo) : '';
+    let oldPhoto = '';
+    try {
+      withLock_(() => {
+        const t = table_('members');
+        // 예전 시트에는 avatar 열 제목이 없으니 제목 줄을 최신으로 맞춤
+        t.sh.getRange(1, 1, 1, SHEETS.members.length).setValues([SHEETS.members]).setFontWeight('bold');
+        const r = t.rows.find((m) => m.id === me.id);
+        t.sh.getRange(r._row, SHEETS.members.indexOf('name') + 1).setNumberFormat('@').setValue(safe_(name));
+        if (newPhoto || req.removePhoto) {
+          oldPhoto = r.avatar;
+          t.sh.getRange(r._row, SHEETS.members.indexOf('avatar') + 1).setNumberFormat('@').setValue(newPhoto);
+        }
+        me.name = name;
+      });
+    } catch (err) {
+      if (newPhoto) trashPhoto_(newPhoto);
+      throw err;
+    }
+    if (oldPhoto) trashPhoto_(oldPhoto);
+    return stateFor_(me);
+  },
+
   rename: (me, req) => {
     const name = cleanName_(req.name);
     withLock_(() => {
@@ -196,7 +222,7 @@ const ACTIONS = {
 // 상태 조립: 숨긴 기록의 메모와 사진은 작성자에게만 내려보냄
 // ---------------------------------------------------------------------------
 function stateFor_(me) {
-  const members = table_('members').rows.map((m) => ({ id: m.id, name: m.name, joinedAt: Number(m.joinedAt) || 0 }));
+  const members = table_('members').rows.map((m) => ({ id: m.id, name: m.name, joinedAt: Number(m.joinedAt) || 0, avatar: m.avatar || '' }));
   const ids = {};
   members.forEach((m) => (ids[m.id] = true));
   const entries = table_('entries').rows
@@ -228,7 +254,7 @@ function stateFor_(me) {
 }
 
 function roster_() {
-  return table_('members').rows.map((m) => ({ id: m.id, name: m.name, role: m.role, key: m.key }));
+  return table_('members').rows.map((m) => ({ id: m.id, name: m.name, role: m.role, key: m.key, avatar: m.avatar || '' }));
 }
 
 // ---------------------------------------------------------------------------
@@ -349,7 +375,7 @@ function safe_(s) {
 
 function addMember_(name, role) {
   const sh = sheet_('members');
-  const m = { id: 'm' + uid_(10), name, key: uid_(32), role, joinedAt: String(Date.now()) };
+  const m = { id: 'm' + uid_(10), name, key: uid_(32), role, joinedAt: String(Date.now()), avatar: '' };
   writeRow_(sh, null, SHEETS.members.map((c) => m[c]));
   return m;
 }

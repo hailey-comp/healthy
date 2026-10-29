@@ -60,7 +60,10 @@
     }
     return data;
   }
-  const errText = (e) => (e && e.message) || "저장하지 못했어요. 잠시 뒤 다시 시도해주세요.";
+  const errText = (e) => {
+    if (e && e.error === "unknown_action") return "서버 코드가 예전 버전이에요. Apps Script에 새 Code.gs를 붙여넣고 새 버전으로 배포해주세요.";
+    return (e && e.message) || "저장하지 못했어요. 잠시 뒤 다시 시도해주세요.";
+  };
 
   function apply(data) {
     if (data.me) S.me = data.me;
@@ -123,12 +126,26 @@
   }
   const selMonday = () => addDays(mondayOf(new Date()), S.weekOffset * 7);
 
-  function avatar(m) {
+  // 프로필 사진이 있으면 사진, 없거나 못 불러오면 이름 첫 글자
+  function avatar(m, previewUrl) {
     let h = 0;
     for (const ch of String(m.id)) h = (h * 31 + ch.charCodeAt(0)) % 360;
     const initial = (m.name || "?").trim().charAt(0) || "?";
-    return `<span class="avatar" style="background:hsl(${h} 55% 42%)" aria-hidden="true">${esc(initial)}</span>`;
+    const style = `background:hsl(${h} 55% 42%)`;
+    const src = previewUrl || (validFileId(m.avatar) ? photoSrc(m.avatar, 200) : "");
+    if (src) return `<img class="avatar" src="${esc(src)}" data-initial="${esc(initial)}" style="${style}" alt="" referrerpolicy="no-referrer">`;
+    return `<span class="avatar" style="${style}" aria-hidden="true">${esc(initial)}</span>`;
   }
+  document.addEventListener("error", (ev) => {
+    const img = ev.target;
+    if (!(img instanceof HTMLImageElement) || !img.classList.contains("avatar")) return;
+    const span = document.createElement("span");
+    span.className = "avatar";
+    span.setAttribute("style", img.getAttribute("style") || "");
+    span.setAttribute("aria-hidden", "true");
+    span.textContent = img.dataset.initial || "?";
+    img.replaceWith(span);
+  }, true);
   const photoSrc = (id, w) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w}`;
   const photoAlt = (id, w) => `https://lh3.googleusercontent.com/d/${encodeURIComponent(id)}=w${w}`;
 
@@ -141,7 +158,7 @@
     const isAdmin = S.me && S.me.role === "admin";
 
     // header
-    document.title = c.title + " · JJJ Health Girl";
+    document.title = c.title + " · JJJ Healthy Girl";
     $("#title").textContent = c.title;
     const pot = ms.reduce((t, m) => t + missedWeeks(m) * c.fine, 0);
     const startD = parseYmd(c.start);
@@ -370,14 +387,67 @@
     } finally { btn.disabled = false; btn.textContent = "저장"; }
   });
 
-  // rename
-  $("#rename").addEventListener("click", () => { $("#n-name").value = S.me?.name || ""; $("#nameErr").hidden = true; openSheet("nameSheet"); $("#n-name").focus(); });
+  // profile: 이름 + 프로필 사진
+  const P = { file: null, removed: false, url: null };
+  const myMember = () => (S.me && S.members.find((m) => m.id === S.me.id)) || S.me || { id: "", name: "" };
+  function drawProfilePreview() {
+    const m = { ...myMember(), name: $("#n-name").value.trim() || myMember().name };
+    if (P.removed) m.avatar = "";
+    $("#p-preview").innerHTML = avatar(m, P.url);
+    const has = !!P.url || (!P.removed && validFileId(m.avatar));
+    $("#p-remove").hidden = !has;
+    $("#p-pick").textContent = has ? "사진 바꾸기" : "사진 올리기";
+  }
+  function resetProfilePhoto() {
+    if (P.url) URL.revokeObjectURL(P.url);
+    P.file = null; P.url = null; P.removed = false; $("#p-photo").value = "";
+  }
+  $("#rename").addEventListener("click", () => {
+    resetProfilePhoto();
+    $("#n-name").value = S.me?.name || ""; $("#nameErr").hidden = true;
+    drawProfilePreview();
+    openSheet("nameSheet");
+  });
+  $("#n-name").addEventListener("input", drawProfilePreview);
+  $("#p-photo").addEventListener("change", () => {
+    const f = $("#p-photo").files[0]; if (!f) return;
+    if (P.url) URL.revokeObjectURL(P.url);
+    P.file = f; P.url = URL.createObjectURL(f); P.removed = false;
+    drawProfilePreview();
+  });
+  $("#p-remove").addEventListener("click", () => {
+    if (P.url) URL.revokeObjectURL(P.url);
+    P.file = null; P.url = null; P.removed = true; $("#p-photo").value = "";
+    drawProfilePreview();
+  });
+  // 가운데를 정사각형으로 잘라 400px로 줄임
+  async function squareCrop(file) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const side = Math.min(bmp.width, bmp.height), out = Math.min(400, side);
+      const cv = document.createElement("canvas"); cv.width = cv.height = out;
+      cv.getContext("2d").drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, out, out);
+      return (await new Promise((r) => cv.toBlob(r, "image/jpeg", 0.85))) || file;
+    } catch (_) { return file; }
+  }
   $("#nameForm").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const name = $("#n-name").value.trim();
     if (!name) { $("#nameErr").textContent = "이름을 입력해주세요."; $("#nameErr").hidden = false; return; }
-    try { apply(await api("rename", { name })); closeSheets(); toast("이름을 바꿨어요"); }
-    catch (e) { $("#nameErr").textContent = errText(e); $("#nameErr").hidden = false; }
+    const btn = $("#p-save"); btn.disabled = true;
+    try {
+      if (P.file) {
+        btn.textContent = "사진 올리는 중…";
+        const blob = await squareCrop(P.file);
+        apply(await api("updateProfile", { name, photo: { mime: blob.type || "image/jpeg", data: await toBase64(blob) } }));
+      } else if (P.removed) {
+        apply(await api("updateProfile", { name, removePhoto: true }));
+      } else {
+        apply(await api("rename", { name }));
+      }
+      resetProfilePhoto(); closeSheets(); toast("프로필을 바꿨어요");
+    } catch (e) { $("#nameErr").textContent = errText(e); $("#nameErr").hidden = false; }
+    finally { btn.disabled = false; btn.textContent = "저장"; }
   });
 
   // rules (admin)

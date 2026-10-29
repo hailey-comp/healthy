@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<title>JJJ Health Girl</title>
+<title>JJJ Healthy Girl</title>
 <meta name="color-scheme" content="light only">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,7 +17,7 @@
 <!-- 초대 링크 없이 들어왔을 때 -->
 <main class="gate" id="gate" hidden>
   <div class="gate-box">
-    <div class="eyebrow">JJJ Health Girl</div>
+    <div class="eyebrow">JJJ Healthy Girl</div>
     <h1 id="gateTitle">초대받은 링크로 들어와 주세요</h1>
     <p id="gateText">이 페이지는 초대받은 사람만 볼 수 있어요. 단톡방에서 받은 본인 링크를 다시 눌러주세요.</p>
   </div>
@@ -25,7 +25,7 @@
 
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div class="eyebrow">JJJ Health Girl</div>
+    <div class="eyebrow">JJJ Healthy Girl</div>
     <h1 id="title">주 3회 운동 내기</h1>
     <div class="rules" id="rules"></div>
   </header>
@@ -54,7 +54,7 @@
 
   <footer class="foot">
     <span id="meLine"></span>
-    <button type="button" class="linkbtn" id="rename">이름 변경</button>
+    <button type="button" class="linkbtn" id="rename">프로필 수정</button>
     <button type="button" class="linkbtn" id="manage" hidden>참가자 관리</button>
     <button type="button" class="linkbtn" id="signout">이 기기에서 나가기</button>
   </footer>
@@ -98,15 +98,23 @@
   </form>
 </div>
 
-<!-- 이름 변경 -->
+<!-- 프로필 수정 -->
 <div class="scrim" id="nameSheet" hidden>
   <form class="sheet" id="nameForm" novalidate>
-    <h3>이름 변경</h3>
+    <h3>프로필 수정</h3>
+    <div class="profile-pic">
+      <span id="p-preview"></span>
+      <div class="row-btns">
+        <label class="btn" for="p-photo" id="p-pick">사진 바꾸기</label>
+        <button type="button" class="btn" id="p-remove" hidden>사진 빼기</button>
+      </div>
+      <input type="file" id="p-photo" accept="image/*" hidden>
+    </div>
     <label class="field"><span>순위표에 보일 이름</span><input type="text" id="n-name" maxlength="20" required></label>
     <p class="err" id="nameErr" hidden></p>
     <div class="sheet-foot">
       <button type="button" class="btn" data-close>취소</button>
-      <button type="submit" class="btn primary">저장</button>
+      <button type="submit" class="btn primary" id="p-save">저장</button>
     </div>
   </form>
 </div>

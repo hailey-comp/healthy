@@ -69,6 +69,7 @@ section h2 small { font-family: var(--font-body); font-size: 13px; color: var(--
 .row:first-child { border-top: 0; }
 .rank { font-family: var(--font-num); font-size: 15px; color: var(--muted); text-align: center; }
 .avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #FFFFFF; font-weight: 700; font-size: 16px; flex: none; }
+img.avatar { object-fit: cover; }
 .who { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .who .name { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .who .name .me { font-weight: 500; font-size: 12px; color: var(--accent); margin-left: 4px; }
@@ -159,6 +160,11 @@ section h2 small { font-family: var(--font-body); font-size: 13px; color: var(--
 .btn:disabled { opacity: .5; cursor: default; }
 .sheet-foot { display: flex; gap: 8px; justify-content: flex-end; }
 .err { color: var(--bad); font-size: 13px; margin: 0; }
+
+/* Profile */
+.profile-pic { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.profile-pic .avatar { width: 88px; height: 88px; font-size: 34px; }
+.profile-pic .row-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* Roster */
 .roster { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
