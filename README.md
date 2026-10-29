@@ -57,11 +57,11 @@
 1. 이 저장소의 [`config.js`](config.js)에서 `apiUrl`에 위 웹 앱 URL을 넣고 커밋해요.
 2. GitHub 저장소 **Settings → Pages**에서 **Source: Deploy from a branch**, **Branch: `main` / `(root)`**로 저장해요.
    - 비공개 저장소로 Pages를 쓰려면 GitHub Pro가 필요해요. 무료 계정이면 저장소를 공개로 두세요. 키가 없으니 안전해요.
-3. 1~2분 뒤 `https://hailey-comp.github.io/healthy/`가 열려요.
+3. 1~2분 뒤 `https://jjj-healthy.github.io/`가 열려요. (저장소는 `jjj-healthy` 조직의 `jjj-healthy.github.io` 저장소라서 주소 뒤에 경로가 없어요.)
 
 ### 4. 친구 초대
 
-1. 내 링크로 들어가요: `https://hailey-comp.github.io/healthy/#k=관리자키`
+1. 내 링크로 들어가요: `https://jjj-healthy.github.io/#k=관리자키`
 2. 맨 아래 **이름 변경**으로 내 이름을 정하고, **규칙 수정**으로 목표와 벌금, 시작일을 정해요.
 3. **참가자 관리 → 친구 추가**로 이름을 넣고, **링크 복사**를 눌러 그 친구에게만 보내요.
 4. 링크가 새어 나가면 **재발급**으로 예전 링크를 막고 새 링크를 보내요.
